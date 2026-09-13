@@ -1,0 +1,35 @@
+# dependencies
+node_modules/
+
+# build
+dist/
+.next/
+out/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# prisma
+prisma/*.db
+
+# test
+coverage/
+
+# docker
+docker/data/
+
+# misc
+*.log
+*.tsbuildinfo
