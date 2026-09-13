@@ -12,6 +12,9 @@ import {
   LogOut,
   Menu,
   X,
+  PiggyBank,
+  Target,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +23,9 @@ const NAV_ITEMS = [
   { label: "Accounts", href: "/dashboard/accounts", icon: Wallet },
   { label: "Transactions", href: "/dashboard/transactions", icon: ReceiptText },
   { label: "Transfers", href: "/dashboard/transfers", icon: ArrowLeftRight },
+  { label: "Budgets", href: "/dashboard/budgets", icon: PiggyBank },
+  { label: "Goals", href: "/dashboard/goals", icon: Target },
+  { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
 ];
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {

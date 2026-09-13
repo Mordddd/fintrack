@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { getDashboardSummary } from "@/lib/api";
+import { getDashboardSummary, getBudgets, getGoals } from "@/lib/api";
 import { formatIDR, formatDate, cn } from "@/lib/utils";
-import type { DashboardSummaryResponse } from "@fintrack/shared";
+import type { DashboardSummaryResponse, BudgetResponse, SavingsGoalResponse } from "@fintrack/shared";
 import { TransactionType } from "@fintrack/shared";
 import Link from "next/link";
 import {
@@ -16,19 +16,30 @@ import {
   Plus,
   ArrowLeftRight,
   ReceiptText,
+  Target,
+  BarChart3,
 } from "lucide-react";
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const [data, setData] = useState<DashboardSummaryResponse | null>(null);
+  const [budgets, setBudgets] = useState<BudgetResponse[]>([]);
+  const [goals, setGoals] = useState<SavingsGoalResponse[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadMetrics() {
       try {
         setLoading(true);
-        const res = await getDashboardSummary();
+        const now = new Date();
+        const [res, b, g] = await Promise.all([
+          getDashboardSummary(),
+          getBudgets(now.getMonth() + 1, now.getFullYear()).catch(() => []),
+          getGoals().catch(() => []),
+        ]);
         setData(res);
+        setBudgets(b);
+        setGoals(g);
       } catch (err) {
         console.error("Failed to load dashboard metrics", err);
       } finally {
@@ -232,6 +243,95 @@ export default function DashboardPage() {
             })}
           </div>
         )}
+      </div>
+
+      {/* Budget Status & Goals Preview */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {/* Budget Status */}
+        <div className="bg-white rounded-2xl shadow-[0_1px_2px_rgba(0,0,0,0.04),0_2px_8px_rgba(0,0,0,0.04)] border border-stone-200/60 overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-5 border-b border-stone-100">
+            <div>
+              <h2 className="text-base font-semibold text-[#1C1917]">Budget Status</h2>
+              <p className="text-xs text-stone-500 mt-0.5">This month&apos;s spending limits</p>
+            </div>
+            <Link href="/dashboard/budgets" className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 transition-colors">
+              View all <ArrowUpRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+          {budgets.length === 0 ? (
+            <div className="p-6 text-center">
+              <PiggyBank className="h-8 w-8 mx-auto text-stone-300 mb-2" />
+              <p className="text-xs text-stone-500">No budgets set</p>
+              <Link href="/dashboard/budgets" className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
+                <Plus className="h-3 w-3" /> Set budget
+              </Link>
+            </div>
+          ) : (
+            <div className="divide-y divide-stone-100 px-6">
+              {budgets.slice(0, 3).map((b) => (
+                <div key={b.id} className="py-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: b.category?.color ?? "#059669" }} />
+                      <span className="text-sm font-medium text-[#1C1917]">{b.category?.name}</span>
+                    </div>
+                    <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full",
+                      b.status === "EXCEEDED" ? "bg-rose-50 text-rose-600" :
+                      b.status === "WARNING" ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"
+                    )}>
+                      {b.percentage}%
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden">
+                    <div
+                      className={cn("h-full rounded-full",
+                        b.status === "EXCEEDED" ? "bg-rose-500" :
+                        b.status === "WARNING" ? "bg-amber-500" : "bg-emerald-500"
+                      )}
+                      style={{ width: `${Math.min(b.percentage, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Goals Preview */}
+        <div className="bg-white rounded-2xl shadow-[0_1px_2px_rgba(0,0,0,0.04),0_2px_8px_rgba(0,0,0,0.04)] border border-stone-200/60 overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-5 border-b border-stone-100">
+            <div>
+              <h2 className="text-base font-semibold text-[#1C1917]">Savings Goals</h2>
+              <p className="text-xs text-stone-500 mt-0.5">Progress toward your targets</p>
+            </div>
+            <Link href="/dashboard/goals" className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 transition-colors">
+              View all <ArrowUpRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+          {goals.length === 0 ? (
+            <div className="p-6 text-center">
+              <Target className="h-8 w-8 mx-auto text-stone-300 mb-2" />
+              <p className="text-xs text-stone-500">No goals yet</p>
+              <Link href="/dashboard/goals" className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
+                <Plus className="h-3 w-3" /> Create goal
+              </Link>
+            </div>
+          ) : (
+            <div className="divide-y divide-stone-100 px-6">
+              {goals.slice(0, 3).map((g) => (
+                <div key={g.id} className="py-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium text-[#1C1917]">{g.name}</span>
+                    <span className="font-mono text-xs text-stone-400">{formatIDR(g.currentAmount)} / {formatIDR(g.targetAmount)}</span>
+                  </div>
+                  <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${g.percentage}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

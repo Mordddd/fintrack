@@ -13,6 +13,12 @@ import type {
   AccountType,
   CategoryType,
   TransactionType,
+  BudgetResponse,
+  BudgetSummaryResponse,
+  SavingsGoalResponse,
+  CashFlowPoint,
+  CategoryBreakdownItem,
+  FinancialOverviewResponse,
 } from "@fintrack/shared";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api/v1";
@@ -282,4 +288,148 @@ export async function deleteTransfer(id: string): Promise<void> {
   await api.fetch(`/transfers/${id}`, {
     method: "DELETE",
   });
+}
+
+// ── Budgets API ──
+
+export async function getBudgets(
+  month?: number,
+  year?: number,
+): Promise<BudgetResponse[]> {
+  const params = new URLSearchParams();
+  if (month) params.set("month", month.toString());
+  if (year) params.set("year", year.toString());
+  const qs = params.toString();
+  const res = await api.fetch<BudgetResponse[]>(qs ? `/budgets?${qs}` : "/budgets");
+  return res.data ?? [];
+}
+
+export async function getBudgetSummary(
+  month?: number,
+  year?: number,
+): Promise<BudgetSummaryResponse> {
+  const params = new URLSearchParams();
+  if (month) params.set("month", month.toString());
+  if (year) params.set("year", year.toString());
+  const qs = params.toString();
+  const res = await api.fetch<BudgetSummaryResponse>(
+    qs ? `/budgets/summary?${qs}` : "/budgets/summary",
+  );
+  return res.data!;
+}
+
+export async function createOrUpdateBudget(data: {
+  categoryId: string;
+  month: number;
+  year: number;
+  limitAmount: number;
+}): Promise<BudgetResponse> {
+  const res = await api.fetch<BudgetResponse>("/budgets", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  return res.data!;
+}
+
+export async function updateBudget(
+  id: string,
+  data: { limitAmount: number },
+): Promise<BudgetResponse> {
+  const res = await api.fetch<BudgetResponse>(`/budgets/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+  return res.data!;
+}
+
+export async function deleteBudget(id: string): Promise<void> {
+  await api.fetch(`/budgets/${id}`, { method: "DELETE" });
+}
+
+// ── Goals API ──
+
+export async function getGoals(): Promise<SavingsGoalResponse[]> {
+  const res = await api.fetch<SavingsGoalResponse[]>("/goals");
+  return res.data ?? [];
+}
+
+export async function getGoal(id: string): Promise<SavingsGoalResponse> {
+  const res = await api.fetch<SavingsGoalResponse>(`/goals/${id}`);
+  return res.data!;
+}
+
+export async function createGoal(data: {
+  name: string;
+  targetAmount: number;
+  currentAmount?: number;
+  deadline?: string;
+  description?: string;
+  icon?: string;
+}): Promise<SavingsGoalResponse> {
+  const res = await api.fetch<SavingsGoalResponse>("/goals", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  return res.data!;
+}
+
+export async function updateGoal(
+  id: string,
+  data: {
+    name?: string;
+    targetAmount?: number;
+    deadline?: string;
+    description?: string;
+    icon?: string;
+  },
+): Promise<SavingsGoalResponse> {
+  const res = await api.fetch<SavingsGoalResponse>(`/goals/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+  return res.data!;
+}
+
+export async function depositGoal(
+  id: string,
+  amount: number,
+): Promise<SavingsGoalResponse> {
+  const res = await api.fetch<SavingsGoalResponse>(`/goals/${id}/deposit`, {
+    method: "POST",
+    body: JSON.stringify({ amount }),
+  });
+  return res.data!;
+}
+
+export async function deleteGoal(id: string): Promise<void> {
+  await api.fetch(`/goals/${id}`, { method: "DELETE" });
+}
+
+// ── Analytics API ──
+
+export async function getCashFlow(
+  months?: number,
+): Promise<CashFlowPoint[]> {
+  const qs = months ? `?months=${months}` : "";
+  const res = await api.fetch<CashFlowPoint[]>(`/analytics/cash-flow${qs}`);
+  return res.data ?? [];
+}
+
+export async function getCategoryBreakdown(
+  month?: number,
+  year?: number,
+): Promise<CategoryBreakdownItem[]> {
+  const params = new URLSearchParams();
+  if (month) params.set("month", month.toString());
+  if (year) params.set("year", year.toString());
+  const qs = params.toString();
+  const res = await api.fetch<CategoryBreakdownItem[]>(
+    qs ? `/analytics/category-breakdown?${qs}` : "/analytics/category-breakdown",
+  );
+  return res.data ?? [];
+}
+
+export async function getFinancialOverview(): Promise<FinancialOverviewResponse> {
+  const res = await api.fetch<FinancialOverviewResponse>("/analytics/overview");
+  return res.data!;
 }

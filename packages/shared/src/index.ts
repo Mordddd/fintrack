@@ -187,3 +187,70 @@ export interface DashboardSummaryResponse {
   savings: number;
   recentTransactions: TransactionResponse[];
 }
+
+// ── Phase 4 Models ──
+
+export interface BudgetResponse {
+  id: string;
+  userId: string;
+  categoryId: string;
+  month: number;
+  year: number;
+  limitAmount: number;
+  spent: number;
+  remaining: number;
+  percentage: number;
+  status: "ON_TRACK" | "WARNING" | "EXCEEDED";
+  category?: {
+    id: string;
+    name: string;
+    icon: string;
+    color: string;
+  };
+}
+
+export interface BudgetSummaryResponse {
+  totalBudgeted: number;
+  totalSpent: number;
+  remaining: number;
+  overallPercentage: number;
+}
+
+export interface SavingsGoalResponse {
+  id: string;
+  userId: string;
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  remainingAmount: number;
+  percentage: number;
+  isCompleted: boolean;
+  deadline: string | null;
+  description: string | null;
+  icon: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CashFlowPoint {
+  month: string;
+  income: number;
+  expense: number;
+  net: number;
+}
+
+export interface CategoryBreakdownItem {
+  categoryId: string;
+  categoryName: string;
+  color: string;
+  icon: string;
+  amount: number;
+  percentage: number;
+}
+
+export interface FinancialOverviewResponse {
+  ytdIncome: number;
+  ytdExpense: number;
+  ytdNet: number;
+  savingsRate: number;
+}
