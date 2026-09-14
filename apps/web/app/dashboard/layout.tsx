@@ -19,6 +19,8 @@ import {
   Bell,
   AlertTriangle,
   CheckCircle,
+  History,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -38,6 +40,8 @@ const NAV_ITEMS = [
   { label: "Budgets", href: "/dashboard/budgets", icon: PiggyBank },
   { label: "Goals", href: "/dashboard/goals", icon: Target },
   { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
+  { label: "Activity", href: "/dashboard/activity", icon: History },
+  { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
 const NOTIF_ICON_MAP: Record<string, typeof Bell> = {
@@ -312,14 +316,26 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               )}
             </div>
 
-            <div className="hidden sm:flex flex-col text-right">
+            <Link
+              href="/dashboard/settings"
+              title="Account settings"
+              className="hidden sm:flex flex-col text-right hover:opacity-80 transition-opacity"
+            >
               <span className="text-sm font-medium text-[#1C1917] leading-none">
                 {user.name}
               </span>
               <span className="text-xs text-stone-500 mt-1 leading-none font-mono">
                 {user.email}
               </span>
-            </div>
+            </Link>
+
+            <Link
+              href="/dashboard/settings"
+              title="Settings"
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-500 hover:text-[#1C1917] hover:border-stone-300 hover:bg-stone-50 transition-colors shadow-sm"
+            >
+              <Settings className="h-4 w-4" />
+            </Link>
 
             <button
               onClick={logout}

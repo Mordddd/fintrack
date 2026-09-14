@@ -5,11 +5,15 @@ import {
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
+import { ActivityService } from "../activity/activity.service";
 import { CreateAccountDto, UpdateAccountDto } from "./dto";
 
 @Injectable()
 export class AccountsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly activity: ActivityService,
+  ) {}
 
   async create(userId: string, dto: CreateAccountDto) {
     const initialDecimal = new Prisma.Decimal(dto.initialBalance);
@@ -25,6 +29,11 @@ export class AccountsService {
         icon: dto.icon ?? "wallet",
         isActive: true,
       },
+    });
+
+    await this.activity.log(userId, "CREATE", "ACCOUNT", account.id, {
+      name: account.name,
+      type: account.type,
     });
 
     return this.mapAccount(account);
@@ -97,7 +106,11 @@ export class AccountsService {
         },
       });
 
-      return this.mapAccount(updated);
+      const res = this.mapAccount(updated);
+      this.activity.log(userId, "UPDATE", "ACCOUNT", updated.id, {
+        name: updated.name,
+      });
+      return res;
     });
   }
 
@@ -118,6 +131,10 @@ export class AccountsService {
     const updated = await this.prisma.account.update({
       where: { id },
       data: { isActive: false },
+    });
+
+    await this.activity.log(userId, "DELETE", "ACCOUNT", id, {
+      name: existing.name,
     });
 
     return this.mapAccount(updated);

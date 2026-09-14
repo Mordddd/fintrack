@@ -14,6 +14,8 @@ import { AnalyticsModule } from "./analytics/analytics.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { RecurringModule } from "./recurring/recurring.module";
 import { ExportModule } from "./export/export.module";
+import { ActivityModule } from "./activity/activity.module";
+import { UsersModule } from "./users/users.module";
 
 @Module({
   imports: [
@@ -31,6 +33,8 @@ import { ExportModule } from "./export/export.module";
     NotificationsModule,
     RecurringModule,
     ExportModule,
+    ActivityModule,
+    UsersModule,
   ],
   controllers: [HealthController],
 })

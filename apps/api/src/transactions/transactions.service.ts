@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
+import { ActivityService } from "../activity/activity.service";
 import {
   CreateTransactionDto,
   UpdateTransactionDto,
@@ -15,7 +16,10 @@ import { TransactionType } from "@fintrack/shared";
 
 @Injectable()
 export class TransactionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly activity: ActivityService,
+  ) {}
 
   async create(userId: string, dto: CreateTransactionDto) {
     // 1. Verify account
@@ -81,7 +85,13 @@ export class TransactionsService {
         },
       });
 
-      return this.mapTransaction(transaction);
+      const res = this.mapTransaction(transaction);
+      this.activity.log(userId, "CREATE", "TRANSACTION", transaction.id, {
+        amount: dto.amount,
+        type: dto.type,
+        description: dto.description,
+      });
+      return res;
     });
   }
 
@@ -251,7 +261,13 @@ export class TransactionsService {
         },
       });
 
-      return this.mapTransaction(updated);
+      const res = this.mapTransaction(updated);
+      this.activity.log(userId, "UPDATE", "TRANSACTION", updated.id, {
+        amount: dto.amount,
+        type: newType,
+        description: dto.description,
+      });
+      return res;
     });
   }
 
@@ -281,6 +297,10 @@ export class TransactionsService {
 
       await tx.transaction.delete({
         where: { id },
+      });
+
+      this.activity.log(userId, "DELETE", "TRANSACTION", id, {
+        description: existing.description,
       });
 
       return { success: true, message: "Transaction deleted successfully" };

@@ -6,6 +6,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ActivityService } from '../activity/activity.service';
 import { CreateBudgetDto, UpdateBudgetDto } from './dto';
 
 @Injectable()
@@ -13,6 +14,7 @@ export class BudgetsService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private activity: ActivityService,
   ) {}
 
   async createOrUpdate(userId: string, dto: CreateBudgetDto) {
@@ -74,6 +76,13 @@ export class BudgetsService {
       await this.notifications.create(userId, 'BUDGET_WARNING', 'Budget warning',
         `${category.name} budget for ${dto.month}/${dto.year} at ${percentage}%`);
     }
+
+    await this.activity.log(userId, 'CREATE_OR_UPDATE', 'BUDGET', budget.id, {
+      categoryId: dto.categoryId,
+      limitAmount: dto.limitAmount,
+      month: dto.month,
+      year: dto.year,
+    });
 
     return budget;
   }
@@ -161,6 +170,10 @@ export class BudgetsService {
     if (!budget || budget.userId !== userId) {
       throw new NotFoundException('Budget not found');
     }
-    return this.prisma.budget.delete({ where: { id } });
+    const deleted = await this.prisma.budget.delete({ where: { id } });
+    await this.activity.log(userId, 'DELETE', 'BUDGET', id, {
+      categoryId: budget.categoryId,
+    });
+    return deleted;
   }
 }

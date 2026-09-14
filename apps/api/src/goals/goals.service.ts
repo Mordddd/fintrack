@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ActivityService } from '../activity/activity.service';
 import { CreateGoalDto, UpdateGoalDto, DepositGoalDto } from './dto';
 
 @Injectable()
@@ -9,6 +10,7 @@ export class GoalsService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private activity: ActivityService,
   ) {}
 
   private formatGoal(goal: any) {
@@ -41,7 +43,12 @@ export class GoalsService {
         icon: dto.icon,
       },
     });
-    return this.formatGoal(goal);
+    const res = this.formatGoal(goal);
+    await this.activity.log(userId, 'CREATE', 'GOAL', goal.id, {
+      name: goal.name,
+      targetAmount: dto.targetAmount,
+    });
+    return res;
   }
 
   async findAll(userId: string) {
@@ -108,7 +115,12 @@ export class GoalsService {
       );
     }
 
-    return this.formatGoal(updated);
+    const res = this.formatGoal(updated);
+    await this.activity.log(userId, 'DEPOSIT', 'GOAL', id, {
+      amount: dto.amount,
+      currentAmount: finalAmount.toNumber(),
+    });
+    return res;
   }
 
   async remove(userId: string, id: string) {
@@ -116,6 +128,10 @@ export class GoalsService {
     if (!goal || goal.userId !== userId) {
       throw new NotFoundException('Goal not found');
     }
-    return this.prisma.savingsGoal.delete({ where: { id } });
+    const deleted = await this.prisma.savingsGoal.delete({ where: { id } });
+    await this.activity.log(userId, 'DELETE', 'GOAL', id, {
+      name: goal.name,
+    });
+    return deleted;
   }
 }

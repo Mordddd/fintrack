@@ -297,3 +297,27 @@ export interface NotificationResponse {
   isRead: boolean;
   createdAt: string;
 }
+
+// ── Phase 6 Models ──
+
+export interface ActivityLogResponse {
+  id: string;
+  userId: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  metadata: Record<string, any> | null;
+  createdAt: string;
+}
+
+export interface UpdateProfileInput {
+  name?: string;
+  avatarUrl?: string | null;
+  currency?: string;
+  timezone?: string;
+}
+
+export interface ChangePasswordInput {
+  currentPassword: string;
+  newPassword: string;
+}

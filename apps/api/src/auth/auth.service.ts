@@ -8,6 +8,7 @@ import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
 import { PrismaService } from "../database/prisma.service";
 import { CategoriesService } from "../categories/categories.service";
+import { ActivityService } from "../activity/activity.service";
 import { RegisterDto, LoginDto } from "./dto";
 import type { AuthUser, AuthTokens, AuthResponse } from "@fintrack/shared";
 
@@ -18,6 +19,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly categoriesService: CategoriesService,
+    private readonly activity: ActivityService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponse> {
@@ -45,6 +47,10 @@ export class AuthService {
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) throw new UnauthorizedException("Invalid credentials");
+
+    await this.activity.log(user.id, "LOGIN", "USER", user.id, {
+      email: user.email,
+    });
 
     const tokens = await this.generateTokens(user.id, user.email);
     return { user: this.toAuthUser(user), tokens };

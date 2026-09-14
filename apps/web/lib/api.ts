@@ -21,6 +21,9 @@ import type {
   FinancialOverviewResponse,
   RecurringTransactionResponse,
   NotificationResponse,
+  ActivityLogResponse,
+  UpdateProfileInput,
+  ChangePasswordInput,
 } from "@fintrack/shared";
 import type { Frequency } from "@fintrack/shared";
 
@@ -569,4 +572,59 @@ export async function exportTransactionsJSON(startDate?: string, endDate?: strin
   });
   if (!res.ok) throw new Error("Export failed");
   return res.blob();
+}
+
+// ── Activity Log API ──
+
+export async function getActivityLogs(query?: {
+  page?: number;
+  limit?: number;
+  entityType?: string;
+  action?: string;
+  startDate?: string;
+  endDate?: string;
+}): Promise<PaginatedResponse<ActivityLogResponse>> {
+  const params = new URLSearchParams();
+  if (query?.page) params.set("page", query.page.toString());
+  if (query?.limit) params.set("limit", query.limit.toString());
+  if (query?.entityType) params.set("entityType", query.entityType);
+  if (query?.action) params.set("action", query.action);
+  if (query?.startDate) params.set("startDate", query.startDate);
+  if (query?.endDate) params.set("endDate", query.endDate);
+  const qs = params.toString();
+  const res = await api.fetch<PaginatedResponse<ActivityLogResponse>>(
+    qs ? `/activity?${qs}` : "/activity",
+  );
+  return res.data!;
+}
+
+// ── User Settings API ──
+
+export async function getUserProfile(): Promise<AuthUser> {
+  const res = await api.fetch<AuthUser>("/users/profile");
+  return res.data!;
+}
+
+export async function updateUserProfile(dto: UpdateProfileInput): Promise<AuthUser> {
+  const res = await api.fetch<AuthUser>("/users/profile", {
+    method: "PATCH",
+    body: JSON.stringify(dto),
+  });
+  return res.data!;
+}
+
+export async function changeUserPassword(dto: ChangePasswordInput): Promise<{ success: boolean; message: string }> {
+  const res = await api.fetch<{ success: boolean; message: string }>("/users/password", {
+    method: "PATCH",
+    body: JSON.stringify(dto),
+  });
+  return res.data!;
+}
+
+export async function deleteUserAccount(confirmationEmail: string): Promise<{ success: boolean }> {
+  const res = await api.fetch<{ success: boolean }>("/users/account", {
+    method: "DELETE",
+    body: JSON.stringify({ confirmationEmail }),
+  });
+  return res.data!;
 }
