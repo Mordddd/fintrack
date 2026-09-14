@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { getDashboardSummary, getBudgets, getGoals } from "@/lib/api";
+import { getDashboardSummary, getBudgets, getGoals, getRecurringTransactions } from "@/lib/api";
 import { formatIDR, formatDate, cn } from "@/lib/utils";
-import type { DashboardSummaryResponse, BudgetResponse, SavingsGoalResponse } from "@fintrack/shared";
+import type { DashboardSummaryResponse, BudgetResponse, SavingsGoalResponse, RecurringTransactionResponse } from "@fintrack/shared";
 import { TransactionType } from "@fintrack/shared";
 import Link from "next/link";
 import {
@@ -18,6 +18,8 @@ import {
   ReceiptText,
   Target,
   BarChart3,
+  RefreshCw,
+  Calendar,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -25,6 +27,7 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardSummaryResponse | null>(null);
   const [budgets, setBudgets] = useState<BudgetResponse[]>([]);
   const [goals, setGoals] = useState<SavingsGoalResponse[]>([]);
+  const [recurring, setRecurring] = useState<RecurringTransactionResponse[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -32,14 +35,16 @@ export default function DashboardPage() {
       try {
         setLoading(true);
         const now = new Date();
-        const [res, b, g] = await Promise.all([
+        const [res, b, g, r] = await Promise.all([
           getDashboardSummary(),
           getBudgets(now.getMonth() + 1, now.getFullYear()).catch(() => []),
           getGoals().catch(() => []),
+          getRecurringTransactions().catch(() => []),
         ]);
         setData(res);
         setBudgets(b);
         setGoals(g);
+        setRecurring(r.filter((x: RecurringTransactionResponse) => x.isActive).slice(0, 3));
       } catch (err) {
         console.error("Failed to load dashboard metrics", err);
       } finally {
@@ -332,6 +337,56 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Upcoming Recurring */}
+      <div className="bg-white rounded-2xl shadow-[0_1px_2px_rgba(0,0,0,0.04),0_2px_8px_rgba(0,0,0,0.04)] border border-stone-200/60 overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-stone-100">
+          <div>
+            <h2 className="text-base font-semibold text-[#1C1917]">Upcoming Recurring</h2>
+            <p className="text-xs text-stone-500 mt-0.5">Next scheduled transactions</p>
+          </div>
+          <Link href="/dashboard/recurring" className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 transition-colors">
+            View all <ArrowUpRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+        {recurring.length === 0 ? (
+          <div className="p-6 text-center">
+            <RefreshCw className="h-8 w-8 mx-auto text-stone-300 mb-2" />
+            <p className="text-xs text-stone-500">No active recurring transactions</p>
+            <Link href="/dashboard/recurring" className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
+              <Plus className="h-3 w-3" /> Set up recurring
+            </Link>
+          </div>
+        ) : (
+          <div className="divide-y divide-stone-100">
+            {recurring.map((r) => (
+              <div key={r.id} className="flex items-center justify-between px-6 py-4 hover:bg-stone-50/70 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "h-2.5 w-2.5 rounded-full flex-shrink-0",
+                    r.type === "INCOME" ? "bg-emerald-500" : "bg-rose-500",
+                  )} />
+                  <div>
+                    <p className="text-sm font-medium text-[#1C1917]">{r.description || "Untitled"}</p>
+                    <div className="flex items-center gap-1.5 text-xs text-stone-400 mt-0.5">
+                      <Calendar className="h-3 w-3" />
+                      <span>{formatDate(r.nextRunDate)}</span>
+                      <span>•</span>
+                      <span>{r.account?.name ?? "Account"}</span>
+                    </div>
+                  </div>
+                </div>
+                <span className={cn(
+                  "font-mono text-sm font-semibold",
+                  r.type === "INCOME" ? "text-emerald-600" : "text-rose-600",
+                )}>
+                  {r.type === "INCOME" ? "+" : "-"}{formatIDR(r.amount)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

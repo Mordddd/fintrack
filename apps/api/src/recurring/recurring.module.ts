@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from '../database/database.module';
 import { NotificationsModule } from '../notifications/notifications.module';
-import { BudgetsService } from './budgets.service';
-import { BudgetsController } from './budgets.controller';
+import { RecurringService } from './recurring.service';
+import { RecurringController } from './recurring.controller';
 
 @Module({
   imports: [DatabaseModule, NotificationsModule],
-  providers: [BudgetsService],
-  controllers: [BudgetsController],
+  providers: [RecurringService],
+  controllers: [RecurringController],
 })
-export class BudgetsModule {}
+export class RecurringModule {}

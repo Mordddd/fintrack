@@ -1,11 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateGoalDto, UpdateGoalDto, DepositGoalDto } from './dto';
 
 @Injectable()
 export class GoalsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   private formatGoal(goal: any) {
     const current = goal.currentAmount instanceof Prisma.Decimal ? goal.currentAmount : new Prisma.Decimal(goal.currentAmount);
@@ -94,6 +98,16 @@ export class GoalsService {
       where: { id },
       data: { currentAmount: finalAmount },
     });
+
+    if (finalAmount.gte(goal.targetAmount)) {
+      await this.notifications.create(
+        userId,
+        'GOAL_COMPLETED',
+        'Goal completed!',
+        `${goal.name} target of Rp ${goal.targetAmount.toNumber()} reached!`,
+      );
+    }
+
     return this.formatGoal(updated);
   }
 

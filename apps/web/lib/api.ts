@@ -19,7 +19,10 @@ import type {
   CashFlowPoint,
   CategoryBreakdownItem,
   FinancialOverviewResponse,
+  RecurringTransactionResponse,
+  NotificationResponse,
 } from "@fintrack/shared";
+import type { Frequency } from "@fintrack/shared";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api/v1";
 
@@ -28,6 +31,10 @@ class ApiClient {
 
   setToken(token: string | null) {
     this.accessToken = token;
+  }
+
+  getToken(): string | null {
+    return this.accessToken;
   }
 
   async fetch<T>(path: string, init?: RequestInit): Promise<ApiResponse<T>> {
@@ -432,4 +439,134 @@ export async function getCategoryBreakdown(
 export async function getFinancialOverview(): Promise<FinancialOverviewResponse> {
   const res = await api.fetch<FinancialOverviewResponse>("/analytics/overview");
   return res.data!;
+}
+
+// ── Recurring Transactions API ──
+
+export interface CreateRecurringInput {
+  accountId: string;
+  categoryId: string;
+  type: TransactionType;
+  amount: number;
+  description?: string;
+  frequency: Frequency;
+  startDate: string;
+  endDate?: string;
+}
+
+export interface UpdateRecurringInput {
+  amount?: number;
+  description?: string;
+  frequency?: Frequency;
+  endDate?: string;
+  isActive?: boolean;
+}
+
+export async function getRecurringTransactions(): Promise<RecurringTransactionResponse[]> {
+  const res = await api.fetch<RecurringTransactionResponse[]>("/recurring");
+  return res.data ?? [];
+}
+
+export async function createRecurring(dto: CreateRecurringInput): Promise<RecurringTransactionResponse> {
+  const res = await api.fetch<RecurringTransactionResponse>("/recurring", {
+    method: "POST",
+    body: JSON.stringify(dto),
+  });
+  return res.data!;
+}
+
+export async function updateRecurring(id: string, dto: UpdateRecurringInput): Promise<RecurringTransactionResponse> {
+  const res = await api.fetch<RecurringTransactionResponse>(`/recurring/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(dto),
+  });
+  return res.data!;
+}
+
+export async function deleteRecurring(id: string): Promise<void> {
+  await api.fetch(`/recurring/${id}`, { method: "DELETE" });
+}
+
+export async function pauseRecurring(id: string): Promise<RecurringTransactionResponse> {
+  const res = await api.fetch<RecurringTransactionResponse>(`/recurring/${id}/pause`, {
+    method: "POST",
+  });
+  return res.data!;
+}
+
+export async function resumeRecurring(id: string): Promise<RecurringTransactionResponse> {
+  const res = await api.fetch<RecurringTransactionResponse>(`/recurring/${id}/resume`, {
+    method: "POST",
+  });
+  return res.data!;
+}
+
+export async function processRecurring(): Promise<{ processed: number }> {
+  const res = await api.fetch<{ processed: number }>("/recurring/process", {
+    method: "POST",
+  });
+  return res.data!;
+}
+
+// ── Notifications API ──
+
+export async function getNotifications(query?: {
+  isRead?: boolean;
+  page?: number;
+  limit?: number;
+}): Promise<PaginatedResponse<NotificationResponse>> {
+  const params = new URLSearchParams();
+  if (query?.isRead !== undefined) params.set("isRead", String(query.isRead));
+  if (query?.page) params.set("page", query.page.toString());
+  if (query?.limit) params.set("limit", query.limit.toString());
+  const qs = params.toString();
+  const res = await api.fetch<PaginatedResponse<NotificationResponse>>(
+    qs ? `/notifications?${qs}` : "/notifications",
+  );
+  return res.data!;
+}
+
+export async function getUnreadCount(): Promise<number> {
+  const res = await api.fetch<{ count: number }>("/notifications/unread-count");
+  return res.data?.count ?? 0;
+}
+
+export async function markNotificationRead(id: string): Promise<void> {
+  await api.fetch(`/notifications/${id}/read`, { method: "PATCH" });
+}
+
+export async function markAllNotificationsRead(): Promise<void> {
+  await api.fetch("/notifications/mark-all-read", { method: "POST" });
+}
+
+export async function deleteNotification(id: string): Promise<void> {
+  await api.fetch(`/notifications/${id}`, { method: "DELETE" });
+}
+
+// ── Export API ──
+
+export async function exportTransactionsCSV(startDate?: string, endDate?: string): Promise<Blob> {
+  const params = new URLSearchParams();
+  if (startDate) params.set("startDate", startDate);
+  if (endDate) params.set("endDate", endDate);
+  const qs = params.toString();
+  const url = `${API}/export/transactions/csv${qs ? `?${qs}` : ""}`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${api.getToken()}` },
+  });
+  if (!res.ok) throw new Error("Export failed");
+  return res.blob();
+}
+
+export async function exportTransactionsJSON(startDate?: string, endDate?: string): Promise<Blob> {
+  const params = new URLSearchParams();
+  if (startDate) params.set("startDate", startDate);
+  if (endDate) params.set("endDate", endDate);
+  const qs = params.toString();
+  const url = `${API}/export/transactions/json${qs ? `?${qs}` : ""}`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${api.getToken()}` },
+  });
+  if (!res.ok) throw new Error("Export failed");
+  return res.blob();
 }

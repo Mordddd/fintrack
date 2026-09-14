@@ -254,3 +254,46 @@ export interface FinancialOverviewResponse {
   ytdNet: number;
   savingsRate: number;
 }
+
+// ── Phase 5 Models ──
+
+export interface RecurringTransactionResponse {
+  id: string;
+  userId: string;
+  accountId: string;
+  categoryId: string;
+  type: TransactionType;
+  amount: number;
+  description: string | null;
+  frequency: Frequency;
+  startDate: string;
+  endDate: string | null;
+  nextRunDate: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  account?: {
+    id: string;
+    name: string;
+    type: AccountType;
+    color: string;
+    icon: string;
+  };
+  category?: {
+    id: string;
+    name: string;
+    type: CategoryType;
+    icon: string;
+    color: string;
+  };
+}
+
+export interface NotificationResponse {
+  id: string;
+  userId: string;
+  type: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+}

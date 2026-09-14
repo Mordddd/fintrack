@@ -3,7 +3,7 @@
 import { useAuth } from "@/lib/auth";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useRef, useCallback, type ReactNode } from "react";
 import {
   LayoutDashboard,
   Wallet,
@@ -15,18 +15,55 @@ import {
   PiggyBank,
   Target,
   BarChart3,
+  RefreshCw,
+  Bell,
+  AlertTriangle,
+  CheckCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  getUnreadCount,
+  getNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+} from "@/lib/api";
+import type { NotificationResponse } from "@fintrack/shared";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Accounts", href: "/dashboard/accounts", icon: Wallet },
   { label: "Transactions", href: "/dashboard/transactions", icon: ReceiptText },
   { label: "Transfers", href: "/dashboard/transfers", icon: ArrowLeftRight },
+  { label: "Recurring", href: "/dashboard/recurring", icon: RefreshCw },
   { label: "Budgets", href: "/dashboard/budgets", icon: PiggyBank },
   { label: "Goals", href: "/dashboard/goals", icon: Target },
   { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
 ];
+
+const NOTIF_ICON_MAP: Record<string, typeof Bell> = {
+  BUDGET_WARNING: AlertTriangle,
+  BUDGET_EXCEEDED: AlertTriangle,
+  GOAL_COMPLETED: CheckCircle,
+  RECURRING_PROCESSED: RefreshCw,
+};
+
+const NOTIF_COLOR_MAP: Record<string, string> = {
+  BUDGET_WARNING: "text-amber-500 bg-amber-50",
+  BUDGET_EXCEEDED: "text-rose-500 bg-rose-50",
+  GOAL_COMPLETED: "text-emerald-500 bg-emerald-50",
+  RECURRING_PROCESSED: "text-blue-500 bg-blue-50",
+};
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { user, loading, logout } = useAuth();
@@ -34,9 +71,90 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Notification state
+  const [unread, setUnread] = useState(0);
+  const [bellOpen, setBellOpen] = useState(false);
+  const [notifItems, setNotifItems] = useState<NotificationResponse[]>([]);
+  const [notifLoading, setNotifLoading] = useState(false);
+  const bellRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
   }, [loading, user, router]);
+
+  // Poll unread count
+  const fetchUnread = useCallback(async () => {
+    try {
+      const c = await getUnreadCount();
+      setUnread(c);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    fetchUnread();
+    const iv = setInterval(fetchUnread, 30000);
+    const onFocus = () => fetchUnread();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(iv);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [user, fetchUnread]);
+
+  // Load recent notifications when bell opens
+  useEffect(() => {
+    if (!bellOpen) return;
+    let cancelled = false;
+    (async () => {
+      setNotifLoading(true);
+      try {
+        const res = await getNotifications({ limit: 8 });
+        if (!cancelled) setNotifItems(res.data);
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setNotifLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [bellOpen]);
+
+  // Close bell dropdown on outside click
+  useEffect(() => {
+    if (!bellOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (bellRef.current && !bellRef.current.contains(e.target as Node)) {
+        setBellOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [bellOpen]);
+
+  async function handleMarkRead(id: string) {
+    try {
+      await markNotificationRead(id);
+      setNotifItems((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+      setUnread((p) => Math.max(0, p - 1));
+    } catch {
+      // ignore
+    }
+  }
+
+  async function handleMarkAll() {
+    try {
+      await markAllNotificationsRead();
+      setNotifItems((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setUnread(0);
+    } catch {
+      // ignore
+    }
+  }
 
   if (loading) {
     return (
@@ -99,6 +217,101 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
           {/* User profile & Actions */}
           <div className="flex items-center gap-3">
+            {/* Notification Bell */}
+            <div className="relative" ref={bellRef}>
+              <button
+                onClick={() => setBellOpen(!bellOpen)}
+                className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-500 hover:text-[#1C1917] hover:border-stone-300 transition-colors shadow-sm"
+              >
+                <Bell className="h-4 w-4" />
+                {unread > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white px-1">
+                    {unread > 99 ? "99+" : unread}
+                  </span>
+                )}
+              </button>
+
+              {/* Dropdown Panel */}
+              {bellOpen && (
+                <div className="absolute right-0 top-12 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-stone-200/60 overflow-hidden z-50">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-stone-100">
+                    <span className="text-sm font-semibold text-[#1C1917]">Notifications</span>
+                    <button
+                      onClick={handleMarkAll}
+                      className="text-[10px] font-medium text-emerald-600 hover:text-emerald-700"
+                    >
+                      Mark all read
+                    </button>
+                  </div>
+
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifLoading ? (
+                      <div className="p-4 space-y-2">
+                        {[1, 2, 3].map((i) => (
+                          <div key={i} className="h-12 bg-stone-100 rounded-xl animate-pulse" />
+                        ))}
+                      </div>
+                    ) : notifItems.length === 0 ? (
+                      <div className="p-8 text-center">
+                        <Bell className="h-8 w-8 text-stone-300 mx-auto mb-2" />
+                        <p className="text-xs text-stone-500">No notifications</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-stone-100">
+                        {notifItems.map((n) => {
+                          const NIcon = NOTIF_ICON_MAP[n.type] ?? Bell;
+                          const nColor = NOTIF_COLOR_MAP[n.type] ?? "text-stone-400 bg-stone-100";
+                          return (
+                            <button
+                              key={n.id}
+                              onClick={() => !n.isRead && handleMarkRead(n.id)}
+                              className={cn(
+                                "w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-stone-50/70 transition-colors",
+                                !n.isRead && "bg-emerald-50/20",
+                              )}
+                            >
+                              <div
+                                className={cn(
+                                  "h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5",
+                                  nColor,
+                                )}
+                              >
+                                <NIcon className="h-3.5 w-3.5" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p
+                                  className={cn(
+                                    "text-xs font-medium truncate",
+                                    !n.isRead ? "text-[#1C1917]" : "text-stone-500",
+                                  )}
+                                >
+                                  {n.title}
+                                </p>
+                                <p className="text-[10px] text-stone-400 truncate mt-0.5">
+                                  {n.message}
+                                </p>
+                              </div>
+                              <span className="text-[9px] text-stone-400 flex-shrink-0 mt-0.5">
+                                {timeAgo(n.createdAt)}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <Link
+                    href="/dashboard/notifications"
+                    onClick={() => setBellOpen(false)}
+                    className="block text-center text-xs font-medium text-emerald-600 hover:text-emerald-700 px-4 py-3 border-t border-stone-100"
+                  >
+                    View all
+                  </Link>
+                </div>
+              )}
+            </div>
+
             <div className="hidden sm:flex flex-col text-right">
               <span className="text-sm font-medium text-[#1C1917] leading-none">
                 {user.name}

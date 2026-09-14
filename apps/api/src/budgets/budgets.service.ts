@@ -5,11 +5,15 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateBudgetDto, UpdateBudgetDto } from './dto';
 
 @Injectable()
 export class BudgetsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async createOrUpdate(userId: string, dto: CreateBudgetDto) {
     const category = await this.prisma.category.findFirst({
@@ -25,7 +29,7 @@ export class BudgetsService {
       );
     }
 
-    return this.prisma.budget.upsert({
+    const budget = await this.prisma.budget.upsert({
       where: {
         userId_categoryId_month_year: {
           userId,
@@ -44,6 +48,34 @@ export class BudgetsService {
       },
       include: { category: true },
     });
+
+    // compute spent and notify if warning/exceeded
+    const startOfMonth = new Date(dto.year, dto.month - 1, 1);
+    const startOfNextMonth = new Date(dto.year, dto.month, 1);
+    const agg = await this.prisma.transaction.aggregate({
+      where: {
+        userId,
+        categoryId: dto.categoryId,
+        type: 'EXPENSE',
+        date: { gte: startOfMonth, lt: startOfNextMonth },
+      },
+      _sum: { amount: true },
+    });
+    const limit = budget.limitAmount;
+    const spent = agg._sum.amount ?? new Prisma.Decimal(0);
+    const percentage = limit.toNumber() > 0
+      ? Math.round((spent.toNumber() / limit.toNumber()) * 100)
+      : 0;
+
+    if (percentage > 100) {
+      await this.notifications.create(userId, 'BUDGET_EXCEEDED', 'Budget exceeded!',
+        `${category.name} budget for ${dto.month}/${dto.year} exceeded (${percentage}%)`);
+    } else if (percentage >= 80) {
+      await this.notifications.create(userId, 'BUDGET_WARNING', 'Budget warning',
+        `${category.name} budget for ${dto.month}/${dto.year} at ${percentage}%`);
+    }
+
+    return budget;
   }
 
   async findAll(userId: string, month: number, year: number) {

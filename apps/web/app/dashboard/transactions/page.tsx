@@ -8,6 +8,8 @@ import {
   deleteTransaction,
   getAccounts,
   getCategories,
+  exportTransactionsCSV,
+  exportTransactionsJSON,
 } from "@/lib/api";
 import { formatIDR, formatDate, cn } from "@/lib/utils";
 import type {
@@ -28,7 +30,9 @@ import {
   AlertCircle,
   ArrowUpRight,
   ArrowDownLeft,
+  Download,
 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<TransactionResponse[]>([]);
@@ -49,6 +53,7 @@ export default function TransactionsPage() {
   const [editingTx, setEditingTx] = useState<TransactionResponse | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [exportOpen, setExportOpen] = useState(false);
 
   // Form Fields
   const [txType, setTxType] = useState<TransactionType>(TransactionType.EXPENSE);
@@ -195,6 +200,26 @@ export default function TransactionsPage() {
       : c.type === CategoryType.EXPENSE,
   );
 
+  const handleExport = async (format: "csv" | "json") => {
+    setExportOpen(false);
+    try {
+      const blob = format === "csv"
+        ? await exportTransactionsCSV()
+        : await exportTransactionsJSON();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `fintrack-transactions-${new Date().toISOString().slice(0, 10)}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`Exported as ${format.toUpperCase()}`);
+    } catch {
+      toast.error("Export failed");
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header & Add Button */}
@@ -207,13 +232,40 @@ export default function TransactionsPage() {
             Track and filter every income and expense across your accounts
           </p>
         </div>
-        <button
-          onClick={handleOpenAdd}
-          className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-4 py-2.5 text-sm font-medium transition-colors shadow-sm self-start sm:self-auto"
-        >
-          <Plus className="h-4 w-4" />
-          Add Transaction
-        </button>
+        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+          <div className="relative">
+            <button
+              onClick={() => setExportOpen(!exportOpen)}
+              className="flex items-center gap-2 bg-white hover:bg-stone-50 text-[#1C1917] border border-stone-200 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors shadow-sm"
+            >
+              <Download className="h-4 w-4 text-stone-400" />
+              Export
+            </button>
+            {exportOpen && (
+              <div className="absolute right-0 top-11 w-40 bg-white rounded-xl shadow-xl border border-stone-200/60 overflow-hidden z-50">
+                <button
+                  onClick={() => handleExport("csv")}
+                  className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
+                >
+                  Export CSV
+                </button>
+                <button
+                  onClick={() => handleExport("json")}
+                  className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors border-t border-stone-100"
+                >
+                  Export JSON
+                </button>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={handleOpenAdd}
+            className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-4 py-2.5 text-sm font-medium transition-colors shadow-sm"
+          >
+            <Plus className="h-4 w-4" />
+            Add Transaction
+          </button>
+        </div>
       </div>
 
       {/* Filter Bar */}

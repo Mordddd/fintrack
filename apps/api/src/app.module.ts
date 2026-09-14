@@ -11,6 +11,9 @@ import { TransfersModule } from "./transfers/transfers.module";
 import { BudgetsModule } from "./budgets/budgets.module";
 import { GoalsModule } from "./goals/goals.module";
 import { AnalyticsModule } from "./analytics/analytics.module";
+import { NotificationsModule } from "./notifications/notifications.module";
+import { RecurringModule } from "./recurring/recurring.module";
+import { ExportModule } from "./export/export.module";
 
 @Module({
   imports: [
@@ -25,6 +28,9 @@ import { AnalyticsModule } from "./analytics/analytics.module";
     BudgetsModule,
     GoalsModule,
     AnalyticsModule,
+    NotificationsModule,
+    RecurringModule,
+    ExportModule,
   ],
   controllers: [HealthController],
 })
