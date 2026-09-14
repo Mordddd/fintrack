@@ -33,3 +33,6 @@ docker/data/
 # misc
 *.log
 *.tsbuildinfo
+*.prompt.txt
+phase-*.txt
+prompts/
