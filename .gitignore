@@ -38,3 +38,4 @@ docker/data/
 *.prompt.txt
 phase-*.txt
 prompts/
+.neon
