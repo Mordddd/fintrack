@@ -12,7 +12,9 @@ import {
   exportTransactionsCSV,
   exportTransactionsJSON,
 } from "@/lib/api";
-import { formatIDR, formatDate, cn } from "@/lib/utils";
+import { formatIDR, formatDate, getSavedCurrency, cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
+import { Modal } from "@/lib/modal";
 import type {
   TransactionResponse,
   AccountResponse,
@@ -37,6 +39,8 @@ import {
 import { toast } from "sonner";
 
 export default function TransactionsPage() {
+  const { user } = useAuth();
+  const activeCurrency = user?.currency || getSavedCurrency();
   const [transactions, setTransactions] = useState<TransactionResponse[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -476,22 +480,20 @@ export default function TransactionsPage() {
       </div>
 
       {/* Add / Edit Transaction Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-2xl border border-stone-200/80 animate-scale-up">
-            <div className="flex items-center justify-between pb-4 border-b border-stone-100">
-              <h2 className="text-lg font-semibold text-[#1C1917]">
-                {editingTx ? "Edit Transaction" : "New Transaction"}
-              </h2>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="rounded-lg p-1 text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+        <div className="flex items-center justify-between pb-4 border-b border-stone-100">
+          <h2 className="text-lg font-semibold text-[#1C1917]">
+            {editingTx ? "Edit Transaction" : "New Transaction"}
+          </h2>
+          <button
+            onClick={() => setIsModalOpen(false)}
+            className="rounded-lg p-1 text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
 
-            <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
               {formError && (
                 <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700">
                   <AlertCircle className="h-4 w-4 flex-shrink-0" />
@@ -587,7 +589,7 @@ export default function TransactionsPage() {
               {/* Amount */}
               <div>
                 <label className="block text-xs font-medium text-stone-700 uppercase tracking-wider mb-1.5">
-                  Amount (IDR)
+                  Amount ({activeCurrency})
                 </label>
                 <input
                   type="number"
@@ -660,9 +662,7 @@ export default function TransactionsPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 }

@@ -7,7 +7,9 @@ import {
   deleteTransfer,
   getAccounts,
 } from "@/lib/api";
-import { formatIDR, formatDate } from "@/lib/utils";
+import { formatIDR, formatDate, getSavedCurrency } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
+import { Modal } from "@/lib/modal";
 import type { TransferResponse, AccountResponse } from "@fintrack/shared";
 import {
   ArrowLeftRight,
@@ -19,6 +21,8 @@ import {
 } from "lucide-react";
 
 export default function TransfersPage() {
+  const { user } = useAuth();
+  const activeCurrency = user?.currency || getSavedCurrency();
   const [transfers, setTransfers] = useState<TransferResponse[]>([]);
   const [accounts, setAccounts] = useState<AccountResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -222,132 +226,128 @@ export default function TransfersPage() {
       </div>
 
       {/* New Transfer Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-2xl border border-stone-200/80 animate-scale-up">
-            <div className="flex items-center justify-between pb-4 border-b border-stone-100">
-              <h2 className="text-lg font-semibold text-[#1C1917]">
-                Transfer Between Accounts
-              </h2>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="rounded-lg p-1 text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-              {formError && (
-                <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700">
-                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                  <span>{formError}</span>
-                </div>
-              )}
-
-              {/* From Account */}
-              <div>
-                <label className="block text-xs font-medium text-stone-700 uppercase tracking-wider mb-1.5">
-                  From Account (Source)
-                </label>
-                <select
-                  required
-                  value={fromAccountId}
-                  onChange={(e) => setFromAccountId(e.target.value)}
-                  className="w-full bg-white border border-stone-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
-                >
-                  {accounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.name} ({formatIDR(acc.currentBalance)})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* To Account */}
-              <div>
-                <label className="block text-xs font-medium text-stone-700 uppercase tracking-wider mb-1.5">
-                  To Account (Destination)
-                </label>
-                <select
-                  required
-                  value={toAccountId}
-                  onChange={(e) => setToAccountId(e.target.value)}
-                  className="w-full bg-white border border-stone-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
-                >
-                  {accounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.name} ({formatIDR(acc.currentBalance)})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Amount */}
-              <div>
-                <label className="block text-xs font-medium text-stone-700 uppercase tracking-wider mb-1.5">
-                  Amount (IDR)
-                </label>
-                <input
-                  type="number"
-                  min="0.01"
-                  step="any"
-                  required
-                  placeholder="e.g. 250000"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="w-full font-mono bg-white border border-stone-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
-                />
-              </div>
-
-              {/* Description & Date */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-stone-700 uppercase tracking-wider mb-1.5">
-                    Description
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Savings deposit"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="w-full bg-white border border-stone-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-stone-700 uppercase tracking-wider mb-1.5">
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    className="w-full bg-white border border-stone-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-stone-100">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2.5 text-sm font-medium text-stone-600 hover:bg-stone-100 rounded-xl transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-5 py-2.5 text-sm font-medium transition-colors shadow-sm disabled:opacity-50"
-                >
-                  {isPending ? "Transferring..." : "Complete Transfer"}
-                </button>
-              </div>
-            </form>
-          </div>
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+        <div className="flex items-center justify-between pb-4 border-b border-stone-100">
+          <h2 className="text-lg font-semibold text-[#1C1917]">
+            Transfer Between Accounts
+          </h2>
+          <button
+            onClick={() => setIsModalOpen(false)}
+            className="rounded-lg p-1 text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
-      )}
+
+        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+          {formError && (
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <span>{formError}</span>
+            </div>
+          )}
+
+          {/* From Account */}
+          <div>
+            <label className="block text-xs font-medium text-stone-700 uppercase tracking-wider mb-1.5">
+              From Account (Source)
+            </label>
+            <select
+              required
+              value={fromAccountId}
+              onChange={(e) => setFromAccountId(e.target.value)}
+              className="w-full bg-white border border-stone-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+            >
+              {accounts.map((acc) => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.name} ({formatIDR(acc.currentBalance)})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* To Account */}
+          <div>
+            <label className="block text-xs font-medium text-stone-700 uppercase tracking-wider mb-1.5">
+              To Account (Destination)
+            </label>
+            <select
+              required
+              value={toAccountId}
+              onChange={(e) => setToAccountId(e.target.value)}
+              className="w-full bg-white border border-stone-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+            >
+              {accounts.map((acc) => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.name} ({formatIDR(acc.currentBalance)})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Amount */}
+          <div>
+            <label className="block text-xs font-medium text-stone-700 uppercase tracking-wider mb-1.5">
+              Amount ({activeCurrency})
+            </label>
+            <input
+              type="number"
+              min="0.01"
+              step="any"
+              required
+              placeholder="e.g. 250000"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="w-full font-mono bg-white border border-stone-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+            />
+          </div>
+
+          {/* Description & Date */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-stone-700 uppercase tracking-wider mb-1.5">
+                Description
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Savings deposit"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full bg-white border border-stone-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-stone-700 uppercase tracking-wider mb-1.5">
+                Date
+              </label>
+              <input
+                type="date"
+                required
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full bg-white border border-stone-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-stone-100">
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              className="px-4 py-2.5 text-sm font-medium text-stone-600 hover:bg-stone-100 rounded-xl transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isPending}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-5 py-2.5 text-sm font-medium transition-colors shadow-sm disabled:opacity-50"
+            >
+              {isPending ? "Transferring..." : "Complete Transfer"}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

@@ -9,7 +9,10 @@ import {
   deleteAccount,
   type CreateAccountInput,
 } from "@/lib/api";
-import { formatIDR, cn } from "@/lib/utils";
+import { formatIDR, getSavedCurrency, cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
+import { Modal } from "@/lib/modal";
+import { useLanguage } from "@/lib/i18n";
 import type { AccountResponse, AccountSummaryResponse } from "@fintrack/shared";
 import { AccountType } from "@fintrack/shared";
 import {
@@ -47,6 +50,9 @@ const PRESET_COLORS = [
 ];
 
 export default function AccountsPage() {
+  const { user } = useAuth();
+  const { t } = useLanguage();
+  const activeCurrency = user?.currency || getSavedCurrency();
   const [accounts, setAccounts] = useState<AccountResponse[]>([]);
   const [summary, setSummary] = useState<AccountSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -278,116 +284,112 @@ export default function AccountsPage() {
       )}
 
       {/* Add / Edit Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-2xl border border-stone-200/80 animate-scale-up">
-            <div className="flex items-center justify-between pb-4 border-b border-stone-100">
-              <h2 className="text-lg font-semibold text-[#1C1917]">
-                {editingAccount ? "Edit Account" : "Add New Account"}
-              </h2>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="rounded-lg p-1 text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+        <div className="flex items-center justify-between pb-4 border-b border-stone-100">
+          <h2 className="text-lg font-semibold text-[#1C1917]">
+            {editingAccount ? t("edit_account") : t("add_new_account")}
+          </h2>
+          <button
+            onClick={() => setIsModalOpen(false)}
+            className="rounded-lg p-1 text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+          {formError && (
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <span>{formError}</span>
             </div>
+          )}
 
-            <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-              {formError && (
-                <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700">
-                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                  <span>{formError}</span>
-                </div>
-              )}
+          <div>
+            <label className="block text-xs font-medium text-stone-700 uppercase tracking-wider mb-1.5">
+              {t("account_name")}
+            </label>
+            <input
+              type="text"
+              required
+              placeholder={t("account_name_placeholder")}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full bg-white border border-stone-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+            />
+          </div>
 
-              <div>
-                <label className="block text-xs font-medium text-stone-700 uppercase tracking-wider mb-1.5">
-                  Account Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. BCA Primary, Cash Wallet"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-white border border-stone-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
-                />
-              </div>
+          <div>
+            <label className="block text-xs font-medium text-stone-700 uppercase tracking-wider mb-1.5">
+              {t("account_type")}
+            </label>
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value as AccountType)}
+              className="w-full bg-white border border-stone-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+            >
+              <option value={AccountType.BANK}>{t("type_bank")}</option>
+              <option value={AccountType.CASH}>{t("type_cash")}</option>
+              <option value={AccountType.E_WALLET}>{t("type_ewallet")}</option>
+              <option value={AccountType.CREDIT_CARD}>{t("type_credit_card")}</option>
+              <option value={AccountType.SAVINGS}>{t("type_savings")}</option>
+              <option value={AccountType.INVESTMENT}>{t("type_investment")}</option>
+            </select>
+          </div>
 
-              <div>
-                <label className="block text-xs font-medium text-stone-700 uppercase tracking-wider mb-1.5">
-                  Account Type
-                </label>
-                <select
-                  value={type}
-                  onChange={(e) => setType(e.target.value as AccountType)}
-                  className="w-full bg-white border border-stone-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
-                >
-                  <option value={AccountType.BANK}>Bank Account</option>
-                  <option value={AccountType.CASH}>Cash</option>
-                  <option value={AccountType.E_WALLET}>E-Wallet (GoPay, OVO, etc.)</option>
-                  <option value={AccountType.CREDIT_CARD}>Credit Card</option>
-                  <option value={AccountType.SAVINGS}>Savings</option>
-                  <option value={AccountType.INVESTMENT}>Investment</option>
-                </select>
-              </div>
+          <div>
+            <label className="block text-xs font-medium text-stone-700 uppercase tracking-wider mb-1.5">
+              {t("initial_balance")} ({activeCurrency})
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="any"
+              required
+              value={initialBalance}
+              onChange={(e) => setInitialBalance(e.target.value)}
+              className="w-full font-mono bg-white border border-stone-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+            />
+          </div>
 
-              <div>
-                <label className="block text-xs font-medium text-stone-700 uppercase tracking-wider mb-1.5">
-                  Initial Balance (IDR)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1000"
-                  required
-                  value={initialBalance}
-                  onChange={(e) => setInitialBalance(e.target.value)}
-                  className="w-full font-mono bg-white border border-stone-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-stone-700 uppercase tracking-wider mb-1.5">
-                  Color Tag
-                </label>
-                <div className="flex items-center gap-2 flex-wrap pt-1">
-                  {PRESET_COLORS.map((c) => (
-                    <button
-                      type="button"
-                      key={c}
-                      onClick={() => setColor(c)}
-                      className={cn(
-                        "h-7 w-7 rounded-full transition-transform",
-                        color === c ? "ring-2 ring-offset-2 ring-emerald-600 scale-110" : "hover:scale-105",
-                      )}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-stone-100">
+          <div>
+            <label className="block text-xs font-medium text-stone-700 uppercase tracking-wider mb-1.5">
+              {t("color_tag")}
+            </label>
+            <div className="flex items-center gap-2 flex-wrap pt-1">
+              {PRESET_COLORS.map((c) => (
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2.5 text-sm font-medium text-stone-600 hover:bg-stone-100 rounded-xl transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-5 py-2.5 text-sm font-medium transition-colors shadow-sm disabled:opacity-50"
-                >
-                  {isPending ? "Saving..." : editingAccount ? "Save Changes" : "Create Account"}
-                </button>
-              </div>
-            </form>
+                  key={c}
+                  onClick={() => setColor(c)}
+                  className={cn(
+                    "h-7 w-7 rounded-full transition-transform",
+                    color === c ? "ring-2 ring-offset-2 ring-emerald-600 scale-110" : "hover:scale-105",
+                  )}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-stone-100">
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              className="px-4 py-2.5 text-sm font-medium text-stone-600 hover:bg-stone-100 rounded-xl transition-colors"
+            >
+              {t("cancel")}
+            </button>
+            <button
+              type="submit"
+              disabled={isPending}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-5 py-2.5 text-sm font-medium transition-colors shadow-sm disabled:opacity-50"
+            >
+              {isPending ? t("saving") : editingAccount ? t("save_changes") : t("create_account")}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

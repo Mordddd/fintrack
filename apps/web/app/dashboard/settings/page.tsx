@@ -11,6 +11,8 @@ import {
   getActivityLogs,
 } from "@/lib/api";
 import { formatIDR, formatDate, cn, setSavedCurrency } from "@/lib/utils";
+import { LANGUAGES, useLanguage, type Language } from "@/lib/i18n";
+import { Modal } from "@/lib/modal";
 import { toast } from "sonner";
 import {
   User,
@@ -23,6 +25,7 @@ import {
   Lock,
   Globe,
   Coins,
+  Languages,
   Monitor,
   Calendar,
   Sun,
@@ -55,6 +58,7 @@ type SettingsTab = "profile" | "security" | "preferences" | "danger";
 export default function SettingsPage() {
   const { user, updateUser, logout } = useAuth();
   const router = useRouter();
+  const { lang, setLanguage, t } = useLanguage();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
 
@@ -334,12 +338,34 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Currency and Timezone */}
-            <div className="grid gap-4 sm:grid-cols-2">
+            {/* Language, Currency and Timezone */}
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-xs font-medium text-stone-600">
+                  <Languages className="h-3.5 w-3.5 text-stone-400" />
+                  {t("display_language")}
+                </label>
+                <select
+                  value={lang}
+                  onChange={(e) => {
+                    const newLang = e.target.value as Language;
+                    setLanguage(newLang);
+                    toast.success(newLang === "id" ? "Bahasa tampilan diubah ke Bahasa Indonesia" : "Display language switched to English");
+                  }}
+                  className="w-full bg-white border border-stone-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors"
+                >
+                  {LANGUAGES.map((l) => (
+                    <option key={l.code} value={l.code}>
+                      {l.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-medium text-stone-600">
                   <Coins className="h-3.5 w-3.5 text-stone-400" />
-                  Primary Currency
+                  {t("primary_currency")}
                 </label>
                 <select
                   value={currency}
@@ -357,7 +383,7 @@ export default function SettingsPage() {
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-xs font-medium text-stone-600">
                   <Globe className="h-3.5 w-3.5 text-stone-400" />
-                  Timezone
+                  {t("timezone")}
                 </label>
                 <select
                   value={timezone}

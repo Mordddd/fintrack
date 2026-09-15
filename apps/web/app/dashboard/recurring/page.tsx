@@ -13,7 +13,9 @@ import {
   getCategories,
 } from "@/lib/api";
 import type { CreateRecurringInput, UpdateRecurringInput } from "@/lib/api";
-import { formatIDR, formatDate, cn } from "@/lib/utils";
+import { formatIDR, formatDate, getSavedCurrency, cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
+import { Modal } from "@/lib/modal";
 import type {
   RecurringTransactionResponse,
   AccountResponse,
@@ -41,6 +43,8 @@ const FREQ_LABELS: Record<string, string> = {
 };
 
 export default function RecurringPage() {
+  const { user } = useAuth();
+  const activeCurrency = user?.currency || getSavedCurrency();
   const [items, setItems] = useState<RecurringTransactionResponse[]>([]);
   const [accounts, setAccounts] = useState<AccountResponse[]>([]);
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
@@ -348,22 +352,20 @@ export default function RecurringPage() {
       )}
 
       {/* Create / Edit Modal */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-stone-100">
-              <h2 className="text-base font-semibold text-[#1C1917]">
-                {editId ? "Edit Recurring" : "New Recurring Transaction"}
-              </h2>
-              <button
-                onClick={() => setModalOpen(false)}
-                className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-stone-100 text-stone-400"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)}>
+        <div className="flex items-center justify-between pb-4 border-b border-stone-100">
+          <h2 className="text-base font-semibold text-[#1C1917]">
+            {editId ? "Edit Recurring" : "New Recurring Transaction"}
+          </h2>
+          <button
+            onClick={() => setModalOpen(false)}
+            className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-stone-100 text-stone-400"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
-            <div className="p-6 space-y-4">
+        <div className="pt-4 space-y-4">
               {/* Type Toggle */}
               <div className="flex gap-2">
                 {(["EXPENSE", "INCOME"] as const).map((t) => (
@@ -428,12 +430,12 @@ export default function RecurringPage() {
               {/* Amount */}
               <div>
                 <label className="block text-xs font-medium text-stone-500 mb-1.5">
-                  Amount (IDR)
+                  Amount ({activeCurrency})
                 </label>
                 <input
                   type="number"
-                  min="0"
-                  step="1000"
+                  min="0.01"
+                  step="any"
                   value={formAmount}
                   onChange={(e) => setFormAmount(e.target.value)}
                   placeholder="0"
@@ -508,7 +510,7 @@ export default function RecurringPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-stone-100">
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-stone-100">
               <button
                 onClick={() => setModalOpen(false)}
                 className="px-4 py-2.5 text-sm font-medium text-stone-600 hover:bg-stone-100 rounded-xl transition-colors"
@@ -523,9 +525,7 @@ export default function RecurringPage() {
                 {saving ? "Saving..." : editId ? "Update" : "Create"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 }
