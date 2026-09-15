@@ -9,7 +9,13 @@ import {
   deleteAccount,
   type CreateAccountInput,
 } from "@/lib/api";
-import { formatIDR, getSavedCurrency, cn } from "@/lib/utils";
+import {
+  formatIDR,
+  formatCurrency,
+  getSavedCurrency,
+  SUPPORTED_CURRENCIES,
+  cn,
+} from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { Modal } from "@/lib/modal";
 import { useLanguage } from "@/lib/i18n";
@@ -67,6 +73,7 @@ export default function AccountsPage() {
   const [name, setName] = useState("");
   const [type, setType] = useState<AccountType>(AccountType.BANK);
   const [initialBalance, setInitialBalance] = useState<string>("0");
+  const [currency, setCurrency] = useState<string>("IDR");
   const [color, setColor] = useState("#059669");
 
   const loadData = async () => {
@@ -91,6 +98,7 @@ export default function AccountsPage() {
     setName("");
     setType(AccountType.BANK);
     setInitialBalance("0");
+    setCurrency(activeCurrency || "IDR");
     setColor("#059669");
     setFormError(null);
     setIsModalOpen(true);
@@ -101,6 +109,7 @@ export default function AccountsPage() {
     setName(acc.name);
     setType(acc.type);
     setInitialBalance(acc.initialBalance.toString());
+    setCurrency(acc.currency || activeCurrency || "IDR");
     setColor(acc.color || "#059669");
     setFormError(null);
     setIsModalOpen(true);
@@ -127,6 +136,7 @@ export default function AccountsPage() {
             name: name.trim(),
             type,
             initialBalance: balanceNum,
+            currency,
             color,
           });
         } else {
@@ -134,6 +144,7 @@ export default function AccountsPage() {
             name: name.trim(),
             type,
             initialBalance: balanceNum,
+            currency,
             color,
             icon: type.toLowerCase(),
           });
@@ -245,19 +256,24 @@ export default function AccountsPage() {
                     >
                       <IconComponent className="h-6 w-6" />
                     </div>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium tracking-wide uppercase bg-stone-100 text-stone-600 font-mono">
-                      {acc.type.replace("_", " ")}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold tracking-wide uppercase bg-emerald-50 text-emerald-700 font-mono">
+                        {acc.currency || "IDR"}
+                      </span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium tracking-wide uppercase bg-stone-100 text-stone-600 font-mono">
+                        {acc.type.replace("_", " ")}
+                      </span>
+                    </div>
                   </div>
 
                   <h3 className="text-base font-semibold text-[#1C1917] mt-4 line-clamp-1">
                     {acc.name}
                   </h3>
                   <div className="mt-2 font-mono text-2xl font-bold tracking-tight text-[#1C1917]">
-                    {formatIDR(acc.currentBalance)}
+                    {formatCurrency(acc.currentBalance, acc.currency)}
                   </div>
                   <div className="mt-1 text-xs text-stone-400 font-mono">
-                    Initial: {formatIDR(acc.initialBalance)}
+                    Initial: {formatCurrency(acc.initialBalance, acc.currency)}
                   </div>
                 </div>
 
@@ -319,27 +335,46 @@ export default function AccountsPage() {
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-stone-700 uppercase tracking-wider mb-1.5">
-              {t("account_type")}
-            </label>
-            <select
-              value={type}
-              onChange={(e) => setType(e.target.value as AccountType)}
-              className="w-full bg-white border border-stone-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
-            >
-              <option value={AccountType.BANK}>{t("type_bank")}</option>
-              <option value={AccountType.CASH}>{t("type_cash")}</option>
-              <option value={AccountType.E_WALLET}>{t("type_ewallet")}</option>
-              <option value={AccountType.CREDIT_CARD}>{t("type_credit_card")}</option>
-              <option value={AccountType.SAVINGS}>{t("type_savings")}</option>
-              <option value={AccountType.INVESTMENT}>{t("type_investment")}</option>
-            </select>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-stone-700 uppercase tracking-wider mb-1.5">
+                {t("account_type")}
+              </label>
+              <select
+                value={type}
+                onChange={(e) => setType(e.target.value as AccountType)}
+                className="w-full bg-white border border-stone-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+              >
+                <option value={AccountType.BANK}>{t("type_bank")}</option>
+                <option value={AccountType.CASH}>{t("type_cash")}</option>
+                <option value={AccountType.E_WALLET}>{t("type_ewallet")}</option>
+                <option value={AccountType.CREDIT_CARD}>{t("type_credit_card")}</option>
+                <option value={AccountType.SAVINGS}>{t("type_savings")}</option>
+                <option value={AccountType.INVESTMENT}>{t("type_investment")}</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-stone-700 uppercase tracking-wider mb-1.5">
+                {t("account_currency")}
+              </label>
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                className="w-full bg-white border border-stone-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+              >
+                {SUPPORTED_CURRENCIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div>
             <label className="block text-xs font-medium text-stone-700 uppercase tracking-wider mb-1.5">
-              {t("initial_balance")} ({activeCurrency})
+              {t("initial_balance")} ({currency})
             </label>
             <input
               type="number"

@@ -1,6 +1,15 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
+export const SUPPORTED_CURRENCIES = [
+  { code: "IDR", label: "IDR (Rp)", symbol: "Rp" },
+  { code: "USD", label: "USD ($)", symbol: "$" },
+  { code: "EUR", label: "EUR (€)", symbol: "€" },
+  { code: "SGD", label: "SGD (S$)", symbol: "S$" },
+  { code: "GBP", label: "GBP (£)", symbol: "£" },
+  { code: "JPY", label: "JPY (¥)", symbol: "¥" },
+];
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
