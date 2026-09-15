@@ -1,7 +1,8 @@
 import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { ConfigModule } from "@nestjs/config";
-import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
+import { ThrottlerModule } from "@nestjs/throttler";
+import { SafeThrottlerGuard } from "./safe-throttler.guard";
 import { DatabaseModule } from "./database/database.module";
 import { AuthModule } from "./auth/auth.module";
 import { HealthController } from "./health.controller";
@@ -41,7 +42,7 @@ import { UsersModule } from "./users/users.module";
   providers: [
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: SafeThrottlerGuard,
     },
   ],
 })

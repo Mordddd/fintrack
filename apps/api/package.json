@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "nest start --watch",
+    "prebuild": "cd ../../packages/shared && pnpm build",
     "build": "nest build",
     "start": "node dist/main",
     "start:prod": "node dist/main",

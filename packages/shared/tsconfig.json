@@ -2,11 +2,11 @@
   "extends": "@fintrack/typescript-config/base.json",
   "compilerOptions": {
     "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    "module": "CommonJS",
+    "moduleResolution": "node",
     "outDir": "./dist",
     "rootDir": "./src",
-    "noEmit": true
+    "declaration": true
   },
   "include": ["src"]
 }
