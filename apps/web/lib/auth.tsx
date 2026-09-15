@@ -10,6 +10,7 @@ import {
 } from "react";
 import type { AuthUser } from "@fintrack/shared";
 import { api, loginUser, registerUser, refreshTokens, getProfile } from "./api";
+import { setSavedCurrency } from "./utils";
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -55,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const profile = await getProfile();
         setUser(profile);
+        if (profile?.currency) setSavedCurrency(profile.currency);
       } catch {
         // Access token expired — try refresh
         try {
@@ -62,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           persist(tokens.accessToken, tokens.refreshToken);
           const profile = await getProfile();
           setUser(profile);
+          if (profile?.currency) setSavedCurrency(profile.currency);
         } catch {
           clear();
         }
@@ -76,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { user: u, tokens } = await loginUser(email, password);
       persist(tokens.accessToken, tokens.refreshToken);
       setUser(u);
+      if (u?.currency) setSavedCurrency(u.currency);
     },
     [persist],
   );
@@ -85,12 +89,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { user: u, tokens } = await registerUser(name, email, password);
       persist(tokens.accessToken, tokens.refreshToken);
       setUser(u);
+      if (u?.currency) setSavedCurrency(u.currency);
     },
     [persist],
   );
 
   const updateUser = useCallback((updated: AuthUser) => {
     setUser(updated);
+    if (updated?.currency) setSavedCurrency(updated.currency);
   }, []);
 
   return (

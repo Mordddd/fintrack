@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { formatIDR, formatDate, cn } from "./utils";
+import { formatIDR, formatCurrency, formatDate, cn } from "./utils";
 
 describe("Frontend Utilities & Financial Formatters", () => {
-  describe("formatIDR", () => {
+  describe("formatIDR & formatCurrency", () => {
     it("formats integer amounts in IDR with dot separators", () => {
       expect(formatIDR(1000000)).toBe("Rp 1.000.000");
       expect(formatIDR(50000)).toBe("Rp 50.000");
@@ -17,8 +17,30 @@ describe("Frontend Utilities & Financial Formatters", () => {
       expect(formatted).toContain("25.000");
     });
 
-    it("handles decimal amounts by rounding to whole rupiah", () => {
+    it("handles decimal amounts by rounding to whole rupiah in IDR", () => {
       expect(formatIDR(15000.75)).toBe("Rp 15.001");
+    });
+
+    it("formats EUR amounts correctly with euro symbol and decimals", () => {
+      expect(formatCurrency(1250.5, "EUR")).toBe("€ 1.250,50");
+      expect(formatCurrency(-50, "EUR")).toBe("-€ 50,00");
+    });
+
+    it("formats USD amounts correctly with dollar sign and decimals", () => {
+      expect(formatCurrency(1250.5, "USD")).toBe("$1,250.50");
+      expect(formatCurrency(-50, "USD")).toBe("-$50.00");
+    });
+
+    it("formats SGD amounts correctly", () => {
+      expect(formatCurrency(1250.5, "SGD")).toBe("S$ 1,250.50");
+    });
+
+    it("formats GBP amounts correctly", () => {
+      expect(formatCurrency(1250.5, "GBP")).toBe("£1,250.50");
+    });
+
+    it("formats JPY amounts with zero decimals", () => {
+      expect(formatCurrency(1250, "JPY")).toBe("¥1,250");
     });
   });
 

@@ -10,7 +10,7 @@ import {
   deleteUserAccount,
   getActivityLogs,
 } from "@/lib/api";
-import { formatIDR, formatDate, cn } from "@/lib/utils";
+import { formatIDR, formatDate, cn, setSavedCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import {
   User,
@@ -132,6 +132,7 @@ export default function SettingsPage() {
         timezone,
       });
       updateUser(updated);
+      setSavedCurrency(currency);
       toast.success("Profile updated successfully");
     } catch (err: any) {
       toast.error(err?.message || "Failed to update profile");

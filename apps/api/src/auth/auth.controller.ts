@@ -13,6 +13,7 @@ import {
   ApiOperation,
   ApiResponse as SwaggerResponse,
 } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 import { AuthService } from "./auth.service";
 import { RegisterDto, LoginDto } from "./dto";
 import { JwtAuthGuard } from "./jwt-auth.guard";
@@ -24,6 +25,7 @@ export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
   @Post("register")
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiOperation({ summary: "Register a new user" })
   @SwaggerResponse({ status: 201, description: "User registered" })
   @SwaggerResponse({ status: 409, description: "Email already exists" })
@@ -33,6 +35,7 @@ export class AuthController {
   }
 
   @Post("login")
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Login with email and password" })
   @SwaggerResponse({ status: 200, description: "Login successful" })
