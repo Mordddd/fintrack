@@ -1,4 +1,4 @@
-name: CI
+name: CI / CD Pipeline
 
 on:
   push:
@@ -7,7 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  ci:
+  validate:
+    name: Lint, Test, Build & E2E
     runs-on: ubuntu-latest
 
     services:
@@ -15,7 +16,7 @@ jobs:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: fintrack
-          POSTGRES_PASSWORD: fintrack_dev
+          POSTGRES_PASSWORD: fintrack_password
           POSTGRES_DB: fintrack
         ports:
           - 5432:5432
@@ -26,28 +27,35 @@ jobs:
           --health-retries 5
 
     env:
-      DATABASE_URL: postgresql://fintrack:fintrack_dev@localhost:5432/fintrack?schema=public
-      JWT_SECRET: ci-test-secret-do-not-use-in-production
-      JWT_REFRESH_SECRET: ci-test-refresh-secret
+      DATABASE_URL: postgresql://fintrack:fintrack_password@localhost:5432/fintrack?schema=public
+      JWT_SECRET: ci-test-jwt-secret-for-testing-only-32chars
+      JWT_REFRESH_SECRET: ci-test-refresh-secret-for-testing-only-32chars
       NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+      PORT: 3001
+      CI: true
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
           version: 9
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
-      - name: Generate Prisma client
-        run: pnpm db:generate
+      - name: Generate Prisma client & Push schema
+        run: |
+          pnpm db:generate
+          pnpm db:push
 
       - name: Lint
         run: pnpm lint
@@ -55,8 +63,28 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Unit tests
-        run: pnpm test
+      - name: Unit & Security Tests
+        run: pnpm -r test -- --run
 
-      - name: Build
+      - name: Build applications
         run: pnpm build
+
+      - name: Install Playwright Browsers
+        run: pnpm --filter @fintrack/web exec playwright install chromium --with-deps
+
+      - name: Start API & Web for E2E
+        run: |
+          pnpm --filter @fintrack/api start:prod &
+          pnpm --filter @fintrack/web start &
+          sleep 10
+
+      - name: Run Playwright E2E & Responsive Smoke Tests
+        run: pnpm --filter @fintrack/web test:e2e
+
+      - name: Upload Test Artifacts on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: apps/web/test-results/
+          retention-days: 7

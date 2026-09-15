@@ -11,8 +11,10 @@ import {
   CreateTransactionDto,
   UpdateTransactionDto,
   TransactionQueryDto,
+  CsvImportPayloadDto,
+  CsvImportItemDto,
 } from "./dto";
-import { TransactionType } from "@fintrack/shared";
+import { TransactionType, CsvImportResult } from "@fintrack/shared";
 
 @Injectable()
 export class TransactionsService {
@@ -368,6 +370,184 @@ export class TransactionsService {
       savings: Number(totalBalance),
       recentTransactions: recent.map((t) => this.mapTransaction(t)),
     };
+  }
+
+  async importBatch(userId: string, dto: CsvImportPayloadDto): Promise<CsvImportResult> {
+    const result: CsvImportResult = {
+      imported: 0,
+      skipped: 0,
+      duplicate: 0,
+      failed: 0,
+      errors: [],
+    };
+
+    if (!dto.items || dto.items.length === 0) {
+      return result;
+    }
+
+    // 1. Fetch user accounts and categories
+    const [userAccounts, userCategories] = await Promise.all([
+      this.prisma.account.findMany({
+        where: { userId, isActive: true },
+        select: { id: true },
+      }),
+      this.prisma.category.findMany({
+        where: {
+          OR: [{ userId }, { isDefault: true }],
+        },
+        select: { id: true },
+      }),
+    ]);
+
+    const validAccountIds = new Set(userAccounts.map((a) => a.id));
+    const validCategoryIds = new Set(userCategories.map((c) => c.id));
+
+    // 2. Query existing transactions for duplicate detection
+    const itemDates = dto.items.map((it) => new Date(it.date));
+    const minDate = new Date(Math.min(...itemDates.map((d) => d.getTime())));
+    const maxDate = new Date(Math.max(...itemDates.map((d) => d.getTime())));
+
+    const existingTxs = await this.prisma.transaction.findMany({
+      where: {
+        userId,
+        date: { gte: minDate, lte: maxDate },
+      },
+      select: {
+        accountId: true,
+        categoryId: true,
+        amount: true,
+        date: true,
+        description: true,
+        type: true,
+      },
+    });
+
+    const existingSignatureSet = new Set<string>();
+    for (const ex of existingTxs) {
+      const dStr = ex.date.toISOString().split("T")[0];
+      const sig = `${ex.accountId}|${dStr}|${Number(ex.amount)}|${(ex.description ?? "").trim().toLowerCase()}|${ex.type}`;
+      existingSignatureSet.add(sig);
+    }
+
+    // 3. Process items and validate
+    const toInsert: Array<{
+      item: CsvImportItemDto;
+      amountDecimal: Prisma.Decimal;
+      txDate: Date;
+    }> = [];
+
+    const seenInBatch = new Set<string>();
+
+    for (let i = 0; i < dto.items.length; i++) {
+      const item = dto.items[i];
+      const rowNum = i + 1;
+
+      if (!validAccountIds.has(item.accountId)) {
+        result.failed++;
+        result.errors.push({
+          row: rowNum,
+          message: `Account '${item.accountId}' not found or inactive for user`,
+        });
+        continue;
+      }
+
+      if (!validCategoryIds.has(item.categoryId)) {
+        result.failed++;
+        result.errors.push({
+          row: rowNum,
+          message: `Category '${item.categoryId}' not found for user`,
+        });
+        continue;
+      }
+
+      const amt = Number(item.amount);
+      if (isNaN(amt) || amt <= 0) {
+        result.failed++;
+        result.errors.push({
+          row: rowNum,
+          message: `Invalid amount: ${item.amount}`,
+        });
+        continue;
+      }
+
+      const txDate = new Date(item.date);
+      if (isNaN(txDate.getTime())) {
+        result.failed++;
+        result.errors.push({
+          row: rowNum,
+          message: `Invalid date: ${item.date}`,
+        });
+        continue;
+      }
+
+      const dStr = txDate.toISOString().split("T")[0];
+      const sig = `${item.accountId}|${dStr}|${amt}|${(item.description ?? "").trim().toLowerCase()}|${item.type}`;
+
+      if (existingSignatureSet.has(sig) || seenInBatch.has(sig)) {
+        result.duplicate++;
+        if (dto.skipDuplicates ?? true) {
+          result.skipped++;
+          continue;
+        }
+      }
+      seenInBatch.add(sig);
+
+      toInsert.push({
+        item,
+        amountDecimal: new Prisma.Decimal(amt),
+        txDate,
+      });
+    }
+
+    // 4. Batch transaction insert & atomic account balance update
+    if (toInsert.length > 0) {
+      await this.prisma.$transaction(async (tx) => {
+        const accountDeltas = new Map<string, Prisma.Decimal>();
+
+        for (const { item, amountDecimal, txDate } of toInsert) {
+          await tx.transaction.create({
+            data: {
+              userId,
+              accountId: item.accountId,
+              categoryId: item.categoryId,
+              type: item.type,
+              amount: amountDecimal,
+              description: item.description ?? null,
+              date: txDate,
+              notes: item.notes ?? null,
+            },
+          });
+
+          const delta =
+            item.type === TransactionType.INCOME
+              ? amountDecimal
+              : amountDecimal.negated();
+
+          const current = accountDeltas.get(item.accountId) ?? new Prisma.Decimal(0);
+          accountDeltas.set(item.accountId, current.plus(delta));
+        }
+
+        for (const [accId, delta] of accountDeltas.entries()) {
+          await tx.account.update({
+            where: { id: accId },
+            data: {
+              currentBalance: {
+                increment: delta,
+              },
+            },
+          });
+        }
+      });
+
+      result.imported = toInsert.length;
+      this.activity.log(userId, "IMPORT", "TRANSACTIONS_CSV", userId, {
+        imported: result.imported,
+        skipped: result.skipped,
+        duplicates: result.duplicate,
+      });
+    }
+
+    return result;
   }
 
   private mapTransaction(t: any) {

@@ -2,7 +2,7 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AnalyticsService } from './analytics.service';
-import { AnalyticsQueryDto } from './dto';
+import { AnalyticsQueryDto, ReportQueryDto } from './dto';
 
 @Controller('analytics')
 @UseGuards(JwtAuthGuard)
@@ -33,4 +33,18 @@ export class AnalyticsController {
   getOverview(@CurrentUser('id') userId: string) {
     return this.analyticsService.getIncomeVsExpenseSummary(userId);
   }
+
+  @Get('reports')
+  getReports(
+    @CurrentUser('id') userId: string,
+    @Query() query: ReportQueryDto,
+  ) {
+    return this.analyticsService.getFinancialReport(
+      userId,
+      query.period,
+      query.startDate,
+      query.endDate,
+    );
+  }
 }
+

@@ -138,3 +138,6 @@ export class TransactionQueryDto {
   @IsOptional()
   sortOrder?: "asc" | "desc" = "desc";
 }
+
+export * from "./import-transactions.dto";
+

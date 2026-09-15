@@ -26,6 +26,8 @@ prisma/*.db
 
 # test
 coverage/
+test-results/
+playwright-report/
 
 # docker
 docker/data/

@@ -321,3 +321,97 @@ export interface ChangePasswordInput {
   currentPassword: string;
   newPassword: string;
 }
+
+// ── Phase 7: CSV Import & Reports Models ──
+
+export interface CsvColumnMapping {
+  date: string;
+  description: string;
+  amount: string;
+  type?: string;
+  category?: string;
+  account?: string;
+  notes?: string;
+}
+
+export interface CsvImportItemInput {
+  date: string;
+  description?: string;
+  amount: number;
+  type: TransactionType;
+  categoryId: string;
+  accountId: string;
+  notes?: string;
+}
+
+export interface CsvImportPayload {
+  items: CsvImportItemInput[];
+  skipDuplicates?: boolean;
+}
+
+export interface CsvImportResult {
+  imported: number;
+  skipped: number;
+  duplicate: number;
+  failed: number;
+  errors: Array<{ row: number; message: string }>;
+}
+
+export interface ReportSummary {
+  totalIncome: number;
+  totalExpense: number;
+  netSavings: number;
+  savingsRate: number;
+  totalTransactions: number;
+  avgDailyExpense: number;
+  avgMonthlyExpense: number;
+}
+
+export interface ReportCategoryItem {
+  categoryId: string;
+  categoryName: string;
+  type: CategoryType;
+  icon: string;
+  color: string;
+  amount: number;
+  percentage: number;
+  transactionCount: number;
+}
+
+export interface ReportAccountItem {
+  accountId: string;
+  accountName: string;
+  type: AccountType;
+  color: string;
+  income: number;
+  expense: number;
+  net: number;
+}
+
+export interface ReportBudgetPerformance {
+  categoryId: string;
+  categoryName: string;
+  budgeted: number;
+  actualSpent: number;
+  percentage: number;
+  status: "ON_TRACK" | "WARNING" | "EXCEEDED";
+}
+
+export interface ReportCashFlowPoint {
+  period: string;
+  income: number;
+  expense: number;
+  net: number;
+}
+
+export interface FinancialReportResponse {
+  period: string;
+  startDate: string;
+  endDate: string;
+  summary: ReportSummary;
+  categories: ReportCategoryItem[];
+  accounts: ReportAccountItem[];
+  budgetPerformance: ReportBudgetPerformance[];
+  cashFlow: ReportCashFlowPoint[];
+}
+

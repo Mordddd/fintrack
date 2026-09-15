@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import {
   getTransactions,
   createTransaction,
@@ -31,6 +32,7 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   Download,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -87,9 +89,10 @@ export default function TransactionsPage() {
         sortBy: "date",
         sortOrder: "desc",
       });
-      setTransactions(res.data);
-      setTotal(res.total);
-      setTotalPages(res.totalPages || 1);
+      const txList = Array.isArray(res) ? res : (res?.data ?? []);
+      setTransactions(txList);
+      setTotal(res?.total ?? txList.length);
+      setTotalPages(res?.totalPages || 1);
     } catch (err) {
       console.error("Failed to load transactions", err);
     } finally {
@@ -258,6 +261,14 @@ export default function TransactionsPage() {
               </div>
             )}
           </div>
+
+          <Link
+            href="/dashboard/transactions/import"
+            className="flex items-center gap-2 bg-white hover:bg-stone-50 text-[#1C1917] border border-stone-200 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors shadow-sm"
+          >
+            <Upload className="h-4 w-4 text-stone-400" />
+            Import CSV
+          </Link>
           <button
             onClick={handleOpenAdd}
             className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-4 py-2.5 text-sm font-medium transition-colors shadow-sm"
@@ -335,7 +346,7 @@ export default function TransactionsPage() {
               <div key={i} className="h-12 bg-stone-100 rounded-xl animate-pulse" />
             ))}
           </div>
-        ) : transactions.length === 0 ? (
+        ) : !transactions || transactions.length === 0 ? (
           <div className="p-12 text-center">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-stone-100 text-stone-400 mb-3">
               <ReceiptText className="h-6 w-6" />
@@ -580,8 +591,8 @@ export default function TransactionsPage() {
                 </label>
                 <input
                   type="number"
-                  min="1"
-                  step="100"
+                  min="0.01"
+                  step="any"
                   required
                   placeholder="e.g. 50000"
                   value={amount}

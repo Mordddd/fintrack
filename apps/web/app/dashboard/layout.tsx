@@ -21,6 +21,9 @@ import {
   CheckCircle,
   History,
   Settings,
+  ChevronDown,
+  FileSpreadsheet,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -31,18 +34,26 @@ import {
 } from "@/lib/api";
 import type { NotificationResponse } from "@fintrack/shared";
 
-const NAV_ITEMS = [
+// Primary navigation links (always in top bar on desktop >= 1024px)
+const PRIMARY_NAV = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Accounts", href: "/dashboard/accounts", icon: Wallet },
   { label: "Transactions", href: "/dashboard/transactions", icon: ReceiptText },
   { label: "Transfers", href: "/dashboard/transfers", icon: ArrowLeftRight },
-  { label: "Recurring", href: "/dashboard/recurring", icon: RefreshCw },
   { label: "Budgets", href: "/dashboard/budgets", icon: PiggyBank },
+  { label: "Reports", href: "/dashboard/reports", icon: FileSpreadsheet },
+];
+
+// Secondary navigation links (in 'More' dropdown or spacious bar on ultra-wide)
+const SECONDARY_NAV = [
   { label: "Goals", href: "/dashboard/goals", icon: Target },
+  { label: "Recurring", href: "/dashboard/recurring", icon: RefreshCw },
   { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
   { label: "Activity", href: "/dashboard/activity", icon: History },
   { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
+
+const ALL_NAV = [...PRIMARY_NAV, ...SECONDARY_NAV];
 
 const NOTIF_ICON_MAP: Record<string, typeof Bell> = {
   BUDGET_WARNING: AlertTriangle,
@@ -74,17 +85,26 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
 
   // Notification state
   const [unread, setUnread] = useState(0);
   const [bellOpen, setBellOpen] = useState(false);
   const [notifItems, setNotifItems] = useState<NotificationResponse[]>([]);
   const [notifLoading, setNotifLoading] = useState(false);
+
   const bellRef = useRef<HTMLDivElement>(null);
+  const moreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
   }, [loading, user, router]);
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+    setMoreMenuOpen(false);
+  }, [pathname]);
 
   // Poll unread count
   const fetchUnread = useCallback(async () => {
@@ -99,24 +119,19 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user) return;
     fetchUnread();
-    const iv = setInterval(fetchUnread, 30000);
-    const onFocus = () => fetchUnread();
-    window.addEventListener("focus", onFocus);
-    return () => {
-      clearInterval(iv);
-      window.removeEventListener("focus", onFocus);
-    };
+    const interval = setInterval(fetchUnread, 30000);
+    return () => clearInterval(interval);
   }, [user, fetchUnread]);
 
-  // Load recent notifications when bell opens
+  // Load notifications when bell opened
   useEffect(() => {
     if (!bellOpen) return;
     let cancelled = false;
     (async () => {
       setNotifLoading(true);
       try {
-        const res = await getNotifications({ limit: 8 });
-        if (!cancelled) setNotifItems(res.data);
+        const res = await getNotifications({ limit: 10 });
+        if (!cancelled) setNotifItems(res.data ?? []);
       } catch {
         // ignore
       } finally {
@@ -128,17 +143,19 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     };
   }, [bellOpen]);
 
-  // Close bell dropdown on outside click
+  // Close dropdowns on outside click
   useEffect(() => {
-    if (!bellOpen) return;
     function handleClick(e: MouseEvent) {
       if (bellRef.current && !bellRef.current.contains(e.target as Node)) {
         setBellOpen(false);
       }
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setMoreMenuOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [bellOpen]);
+  }, []);
 
   async function handleMarkRead(id: string) {
     try {
@@ -170,25 +187,31 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   if (!user) return null;
 
+  const isSecondaryActive = SECONDARY_NAV.some((item) =>
+    pathname.startsWith(item.href),
+  );
+
   return (
-    <div className="min-h-[100dvh] bg-[#FAFAF9] text-[#1C1917]">
-      {/* Top Header */}
-      <header className="sticky top-0 z-40 border-b border-stone-200/70 bg-[#FAFAF9]/85 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          {/* Logo & Desktop Nav */}
-          <div className="flex items-center gap-8">
+    <div className="min-h-[100dvh] w-full bg-[#FAFAF9] text-[#1C1917] flex flex-col">
+      {/* Top Application Header */}
+      <header className="sticky top-0 z-40 w-full border-b border-stone-200/70 bg-[#FAFAF9]/90 backdrop-blur-md">
+        <div className="mx-auto flex h-16 w-full max-w-7xl 2xl:max-w-[1536px] items-center justify-between px-4 sm:px-6 lg:px-8">
+          {/* Left: Brand & Desktop Navigation */}
+          <div className="flex items-center gap-4 xl:gap-6 min-w-0">
+            {/* Logo */}
             <Link
               href="/dashboard"
-              className="flex items-center gap-2.5 font-semibold tracking-tight text-[#1C1917]"
+              className="flex items-center gap-2.5 font-semibold tracking-tight text-[#1C1917] flex-shrink-0"
             >
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
                 <span className="font-mono text-base font-bold">F</span>
               </div>
-              <span className="text-lg">FinTrack</span>
+              <span className="text-lg hidden sm:inline-block">FinTrack</span>
             </Link>
 
-            <nav className="hidden md:flex items-center gap-1">
-              {NAV_ITEMS.map((item) => {
+            {/* Desktop Navigation (lg: >= 1024px) */}
+            <nav className="hidden lg:flex items-center gap-1 min-w-0">
+              {PRIMARY_NAV.map((item) => {
                 const Icon = item.icon;
                 const isActive =
                   item.href === "/dashboard"
@@ -200,31 +223,84 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      "flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-all duration-200",
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs xl:text-sm font-medium transition-all duration-150 whitespace-nowrap",
                       isActive
-                        ? "bg-white text-emerald-700 shadow-sm border border-stone-200/60 font-semibold"
-                        : "text-stone-600 hover:text-[#1C1917] hover:bg-stone-100/60",
+                        ? "bg-white text-emerald-700 shadow-sm border border-stone-200/70 font-semibold"
+                        : "text-stone-600 hover:text-[#1C1917] hover:bg-stone-100/70",
                     )}
                   >
                     <Icon
                       className={cn(
-                        "h-4 w-4",
+                        "h-3.5 w-3.5 xl:h-4 xl:w-4",
                         isActive ? "text-emerald-600" : "text-stone-400",
                       )}
                     />
-                    {item.label}
+                    <span>{item.label}</span>
                   </Link>
                 );
               })}
+
+              {/* More Dropdown for secondary items */}
+              <div className="relative" ref={moreRef}>
+                <button
+                  onClick={() => setMoreMenuOpen(!moreMenuOpen)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs xl:text-sm font-medium transition-all duration-150 whitespace-nowrap",
+                    isSecondaryActive
+                      ? "bg-white text-emerald-700 shadow-sm border border-stone-200/70 font-semibold"
+                      : "text-stone-600 hover:text-[#1C1917] hover:bg-stone-100/70",
+                  )}
+                >
+                  <MoreHorizontalIcon className="h-3.5 w-3.5 xl:h-4 xl:w-4 text-stone-400" />
+                  <span>More</span>
+                  <ChevronDown
+                    className={cn(
+                      "h-3 w-3 transition-transform duration-150 text-stone-400",
+                      moreMenuOpen && "rotate-180",
+                    )}
+                  />
+                </button>
+
+                {moreMenuOpen && (
+                  <div className="absolute left-0 top-full mt-2 w-52 rounded-2xl bg-white p-1.5 shadow-xl border border-stone-200/80 z-50 animate-slide-up">
+                    {SECONDARY_NAV.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = pathname.startsWith(item.href);
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => setMoreMenuOpen(false)}
+                          className={cn(
+                            "flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs xl:text-sm font-medium transition-colors",
+                            isActive
+                              ? "bg-emerald-50 text-emerald-700 font-semibold"
+                              : "text-stone-600 hover:bg-stone-50 hover:text-[#1C1917]",
+                          )}
+                        >
+                          <Icon
+                            className={cn(
+                              "h-4 w-4",
+                              isActive ? "text-emerald-600" : "text-stone-400",
+                            )}
+                          />
+                          <span>{item.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </nav>
           </div>
 
-          {/* User profile & Actions */}
-          <div className="flex items-center gap-3">
+          {/* Right: Notifications, User Controls, Mobile Toggle */}
+          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             {/* Notification Bell */}
             <div className="relative" ref={bellRef}>
               <button
                 onClick={() => setBellOpen(!bellOpen)}
+                aria-label="Notifications"
                 className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-500 hover:text-[#1C1917] hover:border-stone-300 transition-colors shadow-sm"
               >
                 <Bell className="h-4 w-4" />
@@ -235,14 +311,16 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 )}
               </button>
 
-              {/* Dropdown Panel */}
+              {/* Notification Dropdown */}
               {bellOpen && (
-                <div className="absolute right-0 top-12 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-stone-200/60 overflow-hidden z-50">
+                <div className="absolute right-0 top-12 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-stone-200/80 overflow-hidden z-50">
                   <div className="flex items-center justify-between px-4 py-3 border-b border-stone-100">
-                    <span className="text-sm font-semibold text-[#1C1917]">Notifications</span>
+                    <span className="text-sm font-semibold text-[#1C1917]">
+                      Notifications
+                    </span>
                     <button
                       onClick={handleMarkAll}
-                      className="text-[10px] font-medium text-emerald-600 hover:text-emerald-700"
+                      className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
                     >
                       Mark all read
                     </button>
@@ -252,7 +330,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                     {notifLoading ? (
                       <div className="p-4 space-y-2">
                         {[1, 2, 3].map((i) => (
-                          <div key={i} className="h-12 bg-stone-100 rounded-xl animate-pulse" />
+                          <div
+                            key={i}
+                            className="h-12 bg-stone-100 rounded-xl animate-pulse"
+                          />
                         ))}
                       </div>
                     ) : notifItems.length === 0 ? (
@@ -264,7 +345,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                       <div className="divide-y divide-stone-100">
                         {notifItems.map((n) => {
                           const NIcon = NOTIF_ICON_MAP[n.type] ?? Bell;
-                          const nColor = NOTIF_COLOR_MAP[n.type] ?? "text-stone-400 bg-stone-100";
+                          const nColor =
+                            NOTIF_COLOR_MAP[n.type] ?? "text-stone-400 bg-stone-100";
                           return (
                             <button
                               key={n.id}
@@ -291,13 +373,16 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                                 >
                                   {n.title}
                                 </p>
-                                <p className="text-[10px] text-stone-400 truncate mt-0.5">
+                                <p className="text-[11px] text-stone-500 line-clamp-2 mt-0.5">
                                   {n.message}
                                 </p>
+                                <span className="text-[10px] text-stone-400 mt-1 block">
+                                  {timeAgo(n.createdAt)}
+                                </span>
                               </div>
-                              <span className="text-[9px] text-stone-400 flex-shrink-0 mt-0.5">
-                                {timeAgo(n.createdAt)}
-                              </span>
+                              {!n.isRead && (
+                                <span className="h-2 w-2 rounded-full bg-emerald-500 flex-shrink-0 mt-1.5" />
+                              )}
                             </button>
                           );
                         })}
@@ -305,64 +390,70 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                     )}
                   </div>
 
-                  <Link
-                    href="/dashboard/notifications"
-                    onClick={() => setBellOpen(false)}
-                    className="block text-center text-xs font-medium text-emerald-600 hover:text-emerald-700 px-4 py-3 border-t border-stone-100"
-                  >
-                    View all
-                  </Link>
+                  <div className="p-2.5 border-t border-stone-100 bg-stone-50/50 text-center">
+                    <Link
+                      href="/dashboard/notifications"
+                      onClick={() => setBellOpen(false)}
+                      className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
+                    >
+                      View all notifications →
+                    </Link>
+                  </div>
                 </div>
               )}
             </div>
 
+            {/* User Profile Badge (Desktop) */}
             <Link
               href="/dashboard/settings"
-              title="Account settings"
-              className="hidden sm:flex flex-col text-right hover:opacity-80 transition-opacity"
+              className="hidden sm:flex items-center gap-2 pl-2 pr-3 py-1 rounded-xl hover:bg-stone-100/70 transition-colors border border-transparent hover:border-stone-200/60"
             >
-              <span className="text-sm font-medium text-[#1C1917] leading-none">
+              <div className="h-7 w-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-semibold">
+                {user.name ? user.name[0].toUpperCase() : "U"}
+              </div>
+              <span className="text-xs font-medium text-stone-700 max-w-[120px] truncate hidden md:inline-block">
                 {user.name}
               </span>
-              <span className="text-xs text-stone-500 mt-1 leading-none font-mono">
-                {user.email}
-              </span>
             </Link>
 
-            <Link
-              href="/dashboard/settings"
-              title="Settings"
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-500 hover:text-[#1C1917] hover:border-stone-300 hover:bg-stone-50 transition-colors shadow-sm"
-            >
-              <Settings className="h-4 w-4" />
-            </Link>
-
+            {/* Logout Button */}
             <button
               onClick={logout}
+              aria-label="Sign out"
               title="Sign out"
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-500 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition-colors shadow-sm"
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-500 hover:text-rose-600 hover:border-stone-300 transition-colors shadow-sm"
             >
               <LogOut className="h-4 w-4" />
             </button>
 
-            {/* Mobile menu toggle button */}
+            {/* Mobile / Tablet Menu Button (lg:hidden) */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-600 shadow-sm"
+              aria-label="Open navigation menu"
+              className="lg:hidden flex h-9 w-9 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-600 hover:bg-stone-50 transition-colors shadow-sm"
             >
-              {mobileMenuOpen ? (
-                <X className="h-4 w-4" />
-              ) : (
-                <Menu className="h-4 w-4" />
-              )}
+              {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
             </button>
           </div>
         </div>
 
-        {/* Mobile Dropdown Nav */}
+        {/* Mobile / Tablet Full Drawer Panel */}
         {mobileMenuOpen && (
-          <div className="md:hidden border-t border-stone-200/80 bg-white px-4 py-3 space-y-1 shadow-md">
-            {NAV_ITEMS.map((item) => {
+          <div className="lg:hidden border-t border-stone-200/70 bg-white px-4 py-4 space-y-1 shadow-xl max-h-[calc(100dvh-4rem)] overflow-y-auto">
+            <div className="pb-3 mb-2 border-b border-stone-100 px-2 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm">
+                {user.name ? user.name[0].toUpperCase() : "U"}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-[#1C1917] truncate">{user.name}</p>
+                <p className="text-xs text-stone-400 truncate">{user.email}</p>
+              </div>
+            </div>
+
+            <p className="px-3 text-[11px] font-semibold text-stone-400 uppercase tracking-wider mb-1 mt-2">
+              Main Menu
+            </p>
+            {ALL_NAV.map((item) => {
               const Icon = item.icon;
               const isActive =
                 item.href === "/dashboard"
@@ -387,7 +478,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                       isActive ? "text-emerald-600" : "text-stone-400",
                     )}
                   />
-                  {item.label}
+                  <span>{item.label}</span>
                 </Link>
               );
             })}
@@ -395,8 +486,69 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         )}
       </header>
 
-      {/* Main Content Area */}
-      <main className="mx-auto max-w-6xl px-4 sm:px-6 py-8">{children}</main>
+      {/* Main Content Area (Strictly Responsive & No Overflow) */}
+      <main className="w-full flex-1 min-w-0">
+        <div className="mx-auto w-full max-w-7xl 2xl:max-w-[1536px] px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-20 md:pb-8">
+          {children}
+        </div>
+      </main>
+
+      {/* Mobile Bottom Navigation Bar (< 768px) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-stone-200/80 px-2 py-1.5 flex items-center justify-around shadow-lg">
+        {[
+          { label: "Home", href: "/dashboard", icon: LayoutDashboard },
+          { label: "Transactions", href: "/dashboard/transactions", icon: ReceiptText },
+          { label: "Budgets", href: "/dashboard/budgets", icon: PiggyBank },
+          { label: "Reports", href: "/dashboard/reports", icon: FileSpreadsheet },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isActive =
+            tab.href === "/dashboard"
+              ? pathname === "/dashboard"
+              : pathname.startsWith(tab.href);
+
+          return (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              className={cn(
+                "flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg text-[10px] font-medium transition-colors",
+                isActive
+                  ? "text-emerald-600 font-semibold"
+                  : "text-stone-500 hover:text-stone-800",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              <span>{tab.label}</span>
+            </Link>
+          );
+        })}
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg text-[10px] font-medium text-stone-500 hover:text-stone-800"
+        >
+          <Menu className="h-4 w-4" />
+          <span>More</span>
+        </button>
+      </nav>
     </div>
+  );
+}
+
+function MoreHorizontalIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      viewBox="0 0 24 24"
+    >
+      <circle cx={12} cy={12} r={1} />
+      <circle cx={19} cy={12} r={1} />
+      <circle cx={5} cy={12} r={1} />
+    </svg>
   );
 }

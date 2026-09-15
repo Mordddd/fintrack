@@ -24,6 +24,9 @@ import type {
   ActivityLogResponse,
   UpdateProfileInput,
   ChangePasswordInput,
+  CsvImportPayload,
+  CsvImportResult,
+  FinancialReportResponse,
 } from "@fintrack/shared";
 import type { Frequency } from "@fintrack/shared";
 
@@ -50,6 +53,9 @@ class ApiClient {
     const res = await fetch(`${API}${path}`, { ...init, headers });
     const json = await res.json();
     if (!res.ok) throw json;
+    if (json && typeof json === "object" && !("data" in json)) {
+      return { data: json } as ApiResponse<T>;
+    }
     return json;
   }
 }
@@ -628,3 +634,28 @@ export async function deleteUserAccount(confirmationEmail: string): Promise<{ su
   });
   return res.data!;
 }
+
+// ── CSV Import & Reports API ──
+
+export async function importTransactionsCsv(payload: CsvImportPayload): Promise<CsvImportResult> {
+  const res = await api.fetch<CsvImportResult>("/transactions/import", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return res.data!;
+}
+
+export async function getFinancialReports(params?: {
+  period?: string;
+  startDate?: string;
+  endDate?: string;
+}): Promise<FinancialReportResponse> {
+  const query = new URLSearchParams();
+  if (params?.period) query.set("period", params.period);
+  if (params?.startDate) query.set("startDate", params.startDate);
+  if (params?.endDate) query.set("endDate", params.endDate);
+  const qStr = query.toString() ? `?${query.toString()}` : "";
+  const res = await api.fetch<FinancialReportResponse>(`/analytics/reports${qStr}`);
+  return res.data!;
+}
+

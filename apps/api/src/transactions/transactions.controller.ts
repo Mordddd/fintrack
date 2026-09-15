@@ -17,6 +17,7 @@ import {
   CreateTransactionDto,
   UpdateTransactionDto,
   TransactionQueryDto,
+  CsvImportPayloadDto,
 } from "./dto";
 
 @ApiTags("transactions")
@@ -45,6 +46,15 @@ export class TransactionsController {
   @ApiOperation({ summary: "Get monthly aggregates & recent transactions" })
   getSummary(@CurrentUser("id") userId: string) {
     return this.transactionsService.getDashboardMetrics(userId);
+  }
+
+  @Post("import")
+  @ApiOperation({ summary: "Import batch transactions from CSV" })
+  importBatch(
+    @CurrentUser("id") userId: string,
+    @Body() dto: CsvImportPayloadDto,
+  ) {
+    return this.transactionsService.importBatch(userId, dto);
   }
 
   @Get(":id")

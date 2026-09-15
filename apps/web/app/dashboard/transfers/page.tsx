@@ -290,8 +290,8 @@ export default function TransfersPage() {
                 </label>
                 <input
                   type="number"
-                  min="1"
-                  step="1000"
+                  min="0.01"
+                  step="any"
                   required
                   placeholder="e.g. 250000"
                   value={amount}
