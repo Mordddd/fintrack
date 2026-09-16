@@ -545,68 +545,82 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       </main>
 
       {/* Mobile Bottom Navigation Bar (< 768px) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-stone-200/80 px-2 py-1.5 flex items-center justify-around shadow-lg">
-        <Link
-          href="/dashboard"
-          className={cn(
-            "flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-lg text-[10px] font-medium transition-colors",
-            pathname === "/dashboard"
-              ? "text-emerald-600 font-semibold"
-              : "text-stone-500 hover:text-stone-800",
-          )}
-        >
-          <LayoutDashboard className="h-4 w-4" />
-          <span>Home</span>
-        </Link>
+      <nav
+        aria-label="Mobile Navigation"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-stone-200/80 shadow-lg"
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      >
+        <div className="grid grid-cols-5 items-end h-16 w-full max-w-lg mx-auto px-1">
+          {/* 1. Home */}
+          <Link
+            href="/dashboard"
+            className={cn(
+              "flex flex-col items-center justify-end h-full pb-2 transition-colors group",
+              pathname === "/dashboard"
+                ? "text-emerald-600 font-semibold"
+                : "text-stone-500 hover:text-stone-800",
+            )}
+          >
+            <LayoutDashboard className="h-5 w-5 mb-1 group-active:scale-95 transition-transform" />
+            <span className="text-[10px] leading-none tracking-tight">Home</span>
+          </Link>
 
-        <Link
-          href="/dashboard/transactions"
-          className={cn(
-            "flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-lg text-[10px] font-medium transition-colors",
-            pathname.startsWith("/dashboard/transactions")
-              ? "text-emerald-600 font-semibold"
-              : "text-stone-500 hover:text-stone-800",
-          )}
-        >
-          <ReceiptText className="h-4 w-4" />
-          <span>Transactions</span>
-        </Link>
+          {/* 2. Transactions */}
+          <Link
+            href="/dashboard/transactions"
+            className={cn(
+              "flex flex-col items-center justify-end h-full pb-2 transition-colors group",
+              pathname.startsWith("/dashboard/transactions")
+                ? "text-emerald-600 font-semibold"
+                : "text-stone-500 hover:text-stone-800",
+            )}
+          >
+            <ReceiptText className="h-5 w-5 mb-1 group-active:scale-95 transition-transform" />
+            <span className="text-[10px] leading-none tracking-tight">Transactions</span>
+          </Link>
 
-        {/* Center Quick Add Floating Button */}
-        <button
-          onClick={() => {
-            setQuickAddData(null);
-            setQuickAddOpen(true);
-          }}
-          aria-label="Quick Add Transaction"
-          className="flex flex-col items-center justify-center -mt-4 group focus:outline-none"
-        >
-          <div className="h-10 w-10 rounded-2xl bg-emerald-600 group-active:scale-95 text-white flex items-center justify-center shadow-md border-2 border-white transition-transform">
-            <Plus className="h-5 w-5" />
+          {/* 3. Center Elevated Quick Add Button */}
+          <div className="relative flex flex-col items-center justify-end h-full pb-2">
+            <button
+              type="button"
+              onClick={() => {
+                setQuickAddData(null);
+                setQuickAddOpen(true);
+              }}
+              aria-label="Quick Add Transaction"
+              className="absolute -top-5 flex items-center justify-center w-[52px] h-[52px] rounded-full bg-emerald-600 text-white shadow-lg shadow-emerald-600/25 border-4 border-white active:scale-95 hover:bg-emerald-500 transition-all focus:outline-none"
+            >
+              <Plus className="h-6 w-6 stroke-[2.5]" />
+            </button>
+            <span className="text-[10px] font-semibold text-emerald-700 leading-none tracking-tight">
+              Add
+            </span>
           </div>
-          <span className="text-[10px] font-semibold text-emerald-700 mt-0.5">Add</span>
-        </button>
 
-        <Link
-          href="/dashboard/budgets"
-          className={cn(
-            "flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-lg text-[10px] font-medium transition-colors",
-            pathname.startsWith("/dashboard/budgets")
-              ? "text-emerald-600 font-semibold"
-              : "text-stone-500 hover:text-stone-800",
-          )}
-        >
-          <PiggyBank className="h-4 w-4" />
-          <span>Budgets</span>
-        </Link>
+          {/* 4. Budgets */}
+          <Link
+            href="/dashboard/budgets"
+            className={cn(
+              "flex flex-col items-center justify-end h-full pb-2 transition-colors group",
+              pathname.startsWith("/dashboard/budgets")
+                ? "text-emerald-600 font-semibold"
+                : "text-stone-500 hover:text-stone-800",
+            )}
+          >
+            <PiggyBank className="h-5 w-5 mb-1 group-active:scale-95 transition-transform" />
+            <span className="text-[10px] leading-none tracking-tight">Budgets</span>
+          </Link>
 
-        <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-lg text-[10px] font-medium text-stone-500 hover:text-stone-800"
-        >
-          <Menu className="h-4 w-4" />
-          <span>More</span>
-        </button>
+          {/* 5. More */}
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="flex flex-col items-center justify-end h-full pb-2 text-stone-500 hover:text-stone-800 transition-colors group focus:outline-none"
+          >
+            <Menu className="h-5 w-5 mb-1 group-active:scale-95 transition-transform" />
+            <span className="text-[10px] leading-none tracking-tight">More</span>
+          </button>
+        </div>
       </nav>
 
       {/* Global Quick Add Transaction Modal */}
