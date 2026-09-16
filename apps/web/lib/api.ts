@@ -223,6 +223,7 @@ export interface TransactionQueryParams {
   endDate?: string;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
+  search?: string;
 }
 
 export async function getTransactions(
@@ -238,6 +239,7 @@ export async function getTransactions(
   if (query?.endDate) params.set("endDate", query.endDate);
   if (query?.sortBy) params.set("sortBy", query.sortBy);
   if (query?.sortOrder) params.set("sortOrder", query.sortOrder);
+  if (query?.search) params.set("search", query.search);
 
   const qs = params.toString();
   const path = qs ? `/transactions?${qs}` : "/transactions";

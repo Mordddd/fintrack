@@ -115,6 +115,13 @@ export class TransactionsService {
     if (query.categoryId) {
       where.categoryId = query.categoryId;
     }
+    if (query.search?.trim()) {
+      const search = query.search.trim();
+      where.OR = [
+        { description: { contains: search, mode: "insensitive" } },
+        { notes: { contains: search, mode: "insensitive" } },
+      ];
+    }
     if (query.startDate || query.endDate) {
       where.date = {};
       if (query.startDate) {

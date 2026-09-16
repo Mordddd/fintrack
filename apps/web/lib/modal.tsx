@@ -20,10 +20,17 @@ export function Modal({ isOpen, onClose, children }: ModalProps) {
     if (!isOpen) return;
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
     return () => {
       document.body.style.overflow = originalOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen]);
+  }, [isOpen, onClose]);
 
   if (!mounted || !isOpen) return null;
 
@@ -36,7 +43,11 @@ export function Modal({ isOpen, onClose, children }: ModalProps) {
         aria-hidden="true"
       />
       {/* Modal Dialog Content */}
-      <div className="relative z-10 w-full max-w-md max-h-[90vh] overflow-y-auto bg-white rounded-2xl p-6 shadow-2xl border border-stone-200/80 animate-scale-up">
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="relative z-10 w-full max-w-md max-h-[90vh] overflow-y-auto bg-white rounded-2xl p-6 shadow-2xl border border-stone-200/80 animate-scale-up"
+      >
         {children}
       </div>
     </div>,

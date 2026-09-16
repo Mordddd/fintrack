@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/lib/auth";
 import { getDashboardSummary, getBudgets, getGoals, getRecurringTransactions } from "@/lib/api";
 import { formatIDR, formatDate, cn } from "@/lib/utils";
@@ -20,6 +20,7 @@ import {
   BarChart3,
   RefreshCw,
   Calendar,
+  RotateCcw,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -30,29 +31,50 @@ export default function DashboardPage() {
   const [recurring, setRecurring] = useState<RecurringTransactionResponse[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadMetrics() {
-      try {
-        setLoading(true);
-        const now = new Date();
-        const [res, b, g, r] = await Promise.all([
-          getDashboardSummary(),
-          getBudgets(now.getMonth() + 1, now.getFullYear()).catch(() => []),
-          getGoals().catch(() => []),
-          getRecurringTransactions().catch(() => []),
-        ]);
-        setData(res);
-        setBudgets(b);
-        setGoals(g);
-        setRecurring(r.filter((x: RecurringTransactionResponse) => x.isActive).slice(0, 3));
-      } catch (err) {
-        console.error("Failed to load dashboard metrics", err);
-      } finally {
-        setLoading(false);
-      }
+  const loadMetrics = useCallback(async () => {
+    try {
+      setLoading(true);
+      const now = new Date();
+      const [res, b, g, r] = await Promise.all([
+        getDashboardSummary(),
+        getBudgets(now.getMonth() + 1, now.getFullYear()).catch(() => []),
+        getGoals().catch(() => []),
+        getRecurringTransactions().catch(() => []),
+      ]);
+      setData(res);
+      setBudgets(b);
+      setGoals(g);
+      setRecurring(r.filter((x: RecurringTransactionResponse) => x.isActive).slice(0, 3));
+    } catch (err) {
+      console.error("Failed to load dashboard metrics", err);
+    } finally {
+      setLoading(false);
     }
-    loadMetrics();
   }, []);
+
+  useEffect(() => {
+    loadMetrics();
+
+    function handleTxCreated() {
+      loadMetrics();
+    }
+    window.addEventListener("fintrack:transaction-created", handleTxCreated);
+    return () => window.removeEventListener("fintrack:transaction-created", handleTxCreated);
+  }, [loadMetrics]);
+
+  function handleRepeatTransaction(tx: NonNullable<DashboardSummaryResponse["recentTransactions"]>[number]) {
+    window.dispatchEvent(
+      new CustomEvent("fintrack:quick-add", {
+        detail: {
+          type: tx.type,
+          amount: tx.amount,
+          description: tx.description,
+          categoryId: tx.category?.id,
+          accountId: tx.account?.id,
+        },
+      }),
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -68,13 +90,13 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <Link
-            href="/dashboard/transactions"
-            className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-4 py-2 text-sm font-medium transition-colors shadow-sm"
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("fintrack:quick-add", {}))}
+            className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl px-4 py-2 text-sm font-medium transition-all shadow-sm"
           >
             <Plus className="h-4 w-4" />
             Add Transaction
-          </Link>
+          </button>
           <Link
             href="/dashboard/transfers"
             className="inline-flex items-center gap-2 bg-white hover:bg-stone-50 text-[#1C1917] border border-stone-200 rounded-xl px-4 py-2 text-sm font-medium transition-colors shadow-sm"
@@ -196,13 +218,16 @@ export default function DashboardPage() {
             <p className="text-sm font-medium text-stone-600">
               No transactions recorded yet
             </p>
-            <Link
-              href="/dashboard/transactions"
-              className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 hover:text-emerald-700"
+            <p className="text-xs text-stone-400 mt-1 max-w-xs mx-auto">
+              Start tracking your income and expenses to see insights and patterns here.
+            </p>
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent("fintrack:quick-add", {}))}
+              className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-colors"
             >
               <Plus className="h-3.5 w-3.5" />
               Add your first transaction
-            </Link>
+            </button>
           </div>
         ) : (
           <div className="divide-y divide-stone-100">
@@ -211,18 +236,18 @@ export default function DashboardPage() {
               return (
                 <div
                   key={tx.id}
-                  className="flex items-center justify-between px-6 py-4 hover:bg-stone-50/70 transition-colors"
+                  className="flex items-center justify-between px-6 py-4 hover:bg-stone-50/70 transition-colors group"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 min-w-0 pr-3">
                     <div
                       className="h-2.5 w-2.5 rounded-full flex-shrink-0"
                       style={{ backgroundColor: tx.category?.color || "#059669" }}
                     />
-                    <div>
-                      <p className="text-sm font-medium text-[#1C1917]">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-[#1C1917] truncate">
                         {tx.description || "Untitled Transaction"}
                       </p>
-                      <div className="flex items-center gap-2 text-xs text-stone-400 mt-0.5">
+                      <div className="flex items-center gap-2 text-xs text-stone-400 mt-0.5 flex-wrap">
                         <span>{formatDate(tx.date)}</span>
                         <span>•</span>
                         <span>{tx.category?.name || "General"}</span>
@@ -232,7 +257,16 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  <div className="text-right">
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <button
+                      onClick={() => handleRepeatTransaction(tx)}
+                      title="Repeat this transaction"
+                      aria-label="Repeat this transaction"
+                      className="opacity-80 sm:opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg border border-stone-200 hover:border-emerald-300 hover:bg-emerald-50 text-stone-500 hover:text-emerald-700 text-xs flex items-center gap-1 font-medium"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      <span className="hidden md:inline">Repeat</span>
+                    </button>
                     <span
                       className={cn(
                         "font-mono text-sm font-semibold",
@@ -273,31 +307,43 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="divide-y divide-stone-100 px-6">
-              {budgets.slice(0, 3).map((b) => (
-                <div key={b.id} className="py-3">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: b.category?.color ?? "#059669" }} />
-                      <span className="text-sm font-medium text-[#1C1917]">{b.category?.name}</span>
+              {budgets.slice(0, 3).map((b) => {
+                const remaining = b.remaining;
+                const isExceeded = b.status === "EXCEEDED";
+                return (
+                  <div key={b.id} className="py-3">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: b.category?.color ?? "#059669" }} />
+                        <span className="text-sm font-medium text-[#1C1917] truncate">{b.category?.name}</span>
+                      </div>
+                      <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0",
+                        b.status === "EXCEEDED" ? "bg-rose-50 text-rose-600" :
+                        b.status === "WARNING" ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"
+                      )}>
+                        {b.percentage}%
+                      </span>
                     </div>
-                    <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full",
-                      b.status === "EXCEEDED" ? "bg-rose-50 text-rose-600" :
-                      b.status === "WARNING" ? "bg-amber-50 text-amber-600" : "bg-emerald-50 text-emerald-600"
-                    )}>
-                      {b.percentage}%
-                    </span>
+                    <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden mb-1.5">
+                      <div
+                        className={cn("h-full rounded-full transition-all duration-300",
+                          b.status === "EXCEEDED" ? "bg-rose-500" :
+                          b.status === "WARNING" ? "bg-amber-500" : "bg-emerald-500"
+                        )}
+                        style={{ width: `${Math.min(b.percentage, 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-stone-400 font-mono">
+                      <span>{formatIDR(b.spent)} spent of {formatIDR(b.limitAmount)}</span>
+                      <span className={cn("font-medium", isExceeded ? "text-rose-600" : "text-stone-500")}>
+                        {isExceeded
+                          ? `Exceeded by ${formatIDR(Math.abs(remaining))}`
+                          : `${formatIDR(remaining)} remaining`}
+                      </span>
+                    </div>
                   </div>
-                  <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden">
-                    <div
-                      className={cn("h-full rounded-full",
-                        b.status === "EXCEEDED" ? "bg-rose-500" :
-                        b.status === "WARNING" ? "bg-amber-500" : "bg-emerald-500"
-                      )}
-                      style={{ width: `${Math.min(b.percentage, 100)}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -323,17 +369,32 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="divide-y divide-stone-100 px-6">
-              {goals.slice(0, 3).map((g) => (
-                <div key={g.id} className="py-3">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium text-[#1C1917]">{g.name}</span>
-                    <span className="font-mono text-xs text-stone-400">{formatIDR(g.currentAmount)} / {formatIDR(g.targetAmount)}</span>
+              {goals.slice(0, 3).map((g) => {
+                const remaining = Math.max(0, g.targetAmount - g.currentAmount);
+                const isCompleted = g.percentage >= 100;
+                return (
+                  <div key={g.id} className="py-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-[#1C1917] truncate">{g.name}</span>
+                      <span className="font-mono text-xs text-stone-500">
+                        {formatIDR(g.currentAmount)} / {formatIDR(g.targetAmount)}
+                      </span>
+                    </div>
+                    <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden mb-1.5">
+                      <div
+                        className="h-full bg-emerald-500 rounded-full transition-all duration-300"
+                        style={{ width: `${Math.min(g.percentage, 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-stone-400 font-mono">
+                      <span>{g.percentage}% reached</span>
+                      <span className={cn(isCompleted ? "text-emerald-600 font-semibold" : "text-stone-500")}>
+                        {isCompleted ? "Goal achieved!" : `${formatIDR(remaining)} remaining`}
+                      </span>
+                    </div>
                   </div>
-                  <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${g.percentage}%` }} />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

@@ -35,6 +35,8 @@ import {
   ArrowDownLeft,
   Download,
   Upload,
+  Search,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -53,6 +55,8 @@ export default function TransactionsPage() {
   const [selectedType, setSelectedType] = useState<string>("ALL");
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
+  const [search, setSearch] = useState<string>("");
+  const [debouncedSearch, setDebouncedSearch] = useState<string>("");
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -60,6 +64,10 @@ export default function TransactionsPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [exportOpen, setExportOpen] = useState(false);
+
+  // Delete Candidate State
+  const [deleteCandidate, setDeleteCandidate] = useState<TransactionResponse | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Form Fields
   const [txType, setTxType] = useState<TransactionType>(TransactionType.EXPENSE);
@@ -81,6 +89,15 @@ export default function TransactionsPage() {
     }
   };
 
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const loadTransactions = async () => {
     try {
       setLoading(true);
@@ -90,6 +107,7 @@ export default function TransactionsPage() {
         type: selectedType !== "ALL" ? (selectedType as TransactionType) : undefined,
         accountId: selectedAccountId || undefined,
         categoryId: selectedCategoryId || undefined,
+        search: debouncedSearch || undefined,
         sortBy: "date",
         sortOrder: "desc",
       });
@@ -110,7 +128,16 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     loadTransactions();
-  }, [page, selectedType, selectedAccountId, selectedCategoryId]);
+  }, [page, selectedType, selectedAccountId, selectedCategoryId, debouncedSearch]);
+
+  // Reload when transaction is created globally via quick-add
+  useEffect(() => {
+    const handleTxCreated = () => {
+      loadTransactions();
+    };
+    window.addEventListener("fintrack:transaction-created", handleTxCreated);
+    return () => window.removeEventListener("fintrack:transaction-created", handleTxCreated);
+  }, []);
 
   const handleOpenAdd = () => {
     setEditingTx(null);
@@ -171,6 +198,7 @@ export default function TransactionsPage() {
             date: payloadDate,
             notes: notes.trim() || undefined,
           });
+          toast.success("Transaction updated successfully");
         } else {
           await createTransaction({
             accountId,
@@ -181,24 +209,68 @@ export default function TransactionsPage() {
             date: payloadDate,
             notes: notes.trim() || undefined,
           });
+          toast.success("Transaction created successfully");
+          try {
+            localStorage.setItem("fintrack_last_type", txType);
+            localStorage.setItem("fintrack_last_account", accountId);
+            localStorage.setItem("fintrack_last_category", categoryId);
+          } catch {
+            // ignore
+          }
+          window.dispatchEvent(new CustomEvent("fintrack:transaction-created"));
         }
         setIsModalOpen(false);
         await loadTransactions();
       } catch (err: any) {
-        setFormError(err?.message || "Failed to save transaction");
+        const msg = err?.message || "Failed to save transaction";
+        setFormError(msg);
+        toast.error(msg);
       }
     });
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this transaction? Saldo akun akan dikembalikan."))
-      return;
+  const confirmDelete = async () => {
+    if (!deleteCandidate) return;
+    setIsDeleting(true);
     try {
-      await deleteTransaction(id);
+      await deleteTransaction(deleteCandidate.id);
+      toast.success("Transaction deleted successfully");
+      setDeleteCandidate(null);
       await loadTransactions();
+      window.dispatchEvent(new CustomEvent("fintrack:transaction-created"));
     } catch (err: any) {
-      alert(err?.message || "Failed to delete transaction");
+      toast.error(err?.message || "Failed to delete transaction");
+    } finally {
+      setIsDeleting(false);
     }
+  };
+
+  const handleRepeat = (tx: TransactionResponse) => {
+    window.dispatchEvent(
+      new CustomEvent("fintrack:quick-add", {
+        detail: {
+          type: tx.type,
+          amount: tx.amount,
+          description: tx.description,
+          categoryId: tx.categoryId,
+          accountId: tx.accountId,
+        },
+      }),
+    );
+  };
+
+  const isFiltered =
+    selectedType !== "ALL" ||
+    Boolean(selectedAccountId) ||
+    Boolean(selectedCategoryId) ||
+    Boolean(search.trim());
+
+  const handleClearFilters = () => {
+    setSelectedType("ALL");
+    setSelectedAccountId("");
+    setSelectedCategoryId("");
+    setSearch("");
+    setPage(1);
   };
 
   const filteredCategoriesForForm = categories.filter((c) =>

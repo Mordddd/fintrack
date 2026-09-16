@@ -12,6 +12,7 @@ import {
   LogOut,
   Menu,
   X,
+  Plus,
   PiggyBank,
   Target,
   BarChart3,
@@ -33,6 +34,7 @@ import {
   markAllNotificationsRead,
 } from "@/lib/api";
 import type { NotificationResponse } from "@fintrack/shared";
+import { QuickAddModal, type QuickAddInitialData } from "@/lib/quick-add-modal";
 
 // Primary navigation links (always in top bar on desktop >= 1024px)
 const PRIMARY_NAV = [
@@ -93,8 +95,40 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [notifItems, setNotifItems] = useState<NotificationResponse[]>([]);
   const [notifLoading, setNotifLoading] = useState(false);
 
+  // Global Quick Add state
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [quickAddData, setQuickAddData] = useState<QuickAddInitialData | null>(null);
+
   const bellRef = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key.toLowerCase() === "n" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const target = e.target as HTMLElement;
+        const tag = target?.tagName?.toLowerCase();
+        if (tag === "input" || tag === "textarea" || tag === "select" || target?.isContentEditable) {
+          return;
+        }
+        e.preventDefault();
+        setQuickAddData(null);
+        setQuickAddOpen(true);
+      }
+    }
+
+    function handleQuickAddEvent(e: Event) {
+      const customEvent = e as CustomEvent<QuickAddInitialData>;
+      setQuickAddData(customEvent.detail || null);
+      setQuickAddOpen(true);
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("fintrack:quick-add", handleQuickAddEvent);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("fintrack:quick-add", handleQuickAddEvent);
+    };
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
@@ -296,6 +330,23 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
           {/* Right: Notifications, User Controls, Mobile Toggle */}
           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            {/* Quick Add Action Button */}
+            <button
+              onClick={() => {
+                setQuickAddData(null);
+                setQuickAddOpen(true);
+              }}
+              title="Quick Add Transaction (Press N)"
+              aria-label="Quick Add Transaction"
+              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-semibold shadow-sm transition-all"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Add</span>
+              <kbd className="hidden md:inline-block px-1 py-0.5 bg-emerald-700/80 text-[10px] text-emerald-100 rounded font-mono leading-none">
+                N
+              </kbd>
+            </button>
+
             {/* Notification Bell */}
             <div className="relative" ref={bellRef}>
               <button
@@ -488,49 +539,82 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
       {/* Main Content Area (Strictly Responsive & No Overflow) */}
       <main className="w-full flex-1 min-w-0">
-        <div className="mx-auto w-full max-w-7xl 2xl:max-w-[1536px] px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-20 md:pb-8">
+        <div className="mx-auto w-full max-w-7xl 2xl:max-w-[1536px] px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-24 md:pb-8">
           {children}
         </div>
       </main>
 
       {/* Mobile Bottom Navigation Bar (< 768px) */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-stone-200/80 px-2 py-1.5 flex items-center justify-around shadow-lg">
-        {[
-          { label: "Home", href: "/dashboard", icon: LayoutDashboard },
-          { label: "Transactions", href: "/dashboard/transactions", icon: ReceiptText },
-          { label: "Budgets", href: "/dashboard/budgets", icon: PiggyBank },
-          { label: "Reports", href: "/dashboard/reports", icon: FileSpreadsheet },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const isActive =
-            tab.href === "/dashboard"
-              ? pathname === "/dashboard"
-              : pathname.startsWith(tab.href);
+        <Link
+          href="/dashboard"
+          className={cn(
+            "flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-lg text-[10px] font-medium transition-colors",
+            pathname === "/dashboard"
+              ? "text-emerald-600 font-semibold"
+              : "text-stone-500 hover:text-stone-800",
+          )}
+        >
+          <LayoutDashboard className="h-4 w-4" />
+          <span>Home</span>
+        </Link>
 
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              className={cn(
-                "flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg text-[10px] font-medium transition-colors",
-                isActive
-                  ? "text-emerald-600 font-semibold"
-                  : "text-stone-500 hover:text-stone-800",
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              <span>{tab.label}</span>
-            </Link>
-          );
-        })}
+        <Link
+          href="/dashboard/transactions"
+          className={cn(
+            "flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-lg text-[10px] font-medium transition-colors",
+            pathname.startsWith("/dashboard/transactions")
+              ? "text-emerald-600 font-semibold"
+              : "text-stone-500 hover:text-stone-800",
+          )}
+        >
+          <ReceiptText className="h-4 w-4" />
+          <span>Transactions</span>
+        </Link>
+
+        {/* Center Quick Add Floating Button */}
+        <button
+          onClick={() => {
+            setQuickAddData(null);
+            setQuickAddOpen(true);
+          }}
+          aria-label="Quick Add Transaction"
+          className="flex flex-col items-center justify-center -mt-4 group focus:outline-none"
+        >
+          <div className="h-10 w-10 rounded-2xl bg-emerald-600 group-active:scale-95 text-white flex items-center justify-center shadow-md border-2 border-white transition-transform">
+            <Plus className="h-5 w-5" />
+          </div>
+          <span className="text-[10px] font-semibold text-emerald-700 mt-0.5">Add</span>
+        </button>
+
+        <Link
+          href="/dashboard/budgets"
+          className={cn(
+            "flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-lg text-[10px] font-medium transition-colors",
+            pathname.startsWith("/dashboard/budgets")
+              ? "text-emerald-600 font-semibold"
+              : "text-stone-500 hover:text-stone-800",
+          )}
+        >
+          <PiggyBank className="h-4 w-4" />
+          <span>Budgets</span>
+        </Link>
+
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg text-[10px] font-medium text-stone-500 hover:text-stone-800"
+          className="flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-lg text-[10px] font-medium text-stone-500 hover:text-stone-800"
         >
           <Menu className="h-4 w-4" />
           <span>More</span>
         </button>
       </nav>
+
+      {/* Global Quick Add Transaction Modal */}
+      <QuickAddModal
+        isOpen={quickAddOpen}
+        onClose={() => setQuickAddOpen(false)}
+        initialData={quickAddData}
+      />
     </div>
   );
 }
