@@ -10,6 +10,8 @@ import {
   getCategories,
 } from "@/lib/api";
 import { formatIDR, cn } from "@/lib/utils";
+import { Modal } from "@/lib/modal";
+import { toast } from "sonner";
 import type {
   BudgetResponse,
   BudgetSummaryResponse,
@@ -99,12 +101,15 @@ export default function BudgetsPage() {
     try {
       if (editId) {
         await updateBudget(editId, { limitAmount: limit });
+        toast.success("Budget updated successfully");
       } else {
         await createOrUpdateBudget({ categoryId: formCategoryId, month, year, limitAmount: limit });
+        toast.success("Budget set successfully");
       }
       setShowModal(false);
       await load();
-    } catch (e) {
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save budget");
       console.error(e);
     } finally {
       setSaving(false);
@@ -115,8 +120,10 @@ export default function BudgetsPage() {
     if (!confirm("Delete this budget?")) return;
     try {
       await deleteBudget(id);
+      toast.success("Budget deleted successfully");
       await load();
-    } catch (e) {
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to delete budget");
       console.error(e);
     }
   }
@@ -236,61 +243,66 @@ export default function BudgetsPage() {
                   style={{ width: `${Math.min(b.percentage, 100)}%` }}
                 />
               </div>
-              <p className="text-xs text-stone-400 mt-1.5 text-right font-mono">{b.percentage}%</p>
+              <div className="flex items-center justify-between text-xs mt-2 font-mono">
+                <span className={cn(b.limitAmount - b.spent >= 0 ? "text-stone-600 font-medium" : "text-rose-600 font-semibold")}>
+                  {b.limitAmount - b.spent >= 0
+                    ? `${formatIDR(b.limitAmount - b.spent)} remaining`
+                    : `${formatIDR(Math.abs(b.limitAmount - b.spent))} over limit`}
+                </span>
+                <span className="text-stone-400">{b.percentage}%</span>
+              </div>
             </div>
           ))}
         </div>
       )}
 
       {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setShowModal(false)}>
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-stone-200/60 mx-4" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-semibold text-[#1C1917]">{editId ? "Edit Budget" : "Set Budget"}</h2>
-              <button onClick={() => setShowModal(false)} className="p-1 rounded-lg hover:bg-stone-100 text-stone-400"><X className="h-4 w-4" /></button>
-            </div>
+      <Modal isOpen={showModal} onClose={() => setShowModal(false)}>
+        <div className="flex items-center justify-between pb-4 border-b border-stone-100 mb-5">
+          <h2 className="text-lg font-semibold text-[#1C1917]">{editId ? "Edit Budget" : "Set Budget"}</h2>
+          <button onClick={() => setShowModal(false)} className="p-1 rounded-lg hover:bg-stone-100 text-stone-400">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
-            <div className="space-y-4">
-              {!editId && (
-                <div>
-                  <label className="block text-xs font-medium text-stone-500 mb-1.5">Category (Expense)</label>
-                  <select
-                    value={formCategoryId}
-                    onChange={(e) => setFormCategoryId(e.target.value)}
-                    className="w-full rounded-xl border border-stone-200 bg-[#FAFAF9] px-3 py-2.5 text-sm text-[#1C1917] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                  >
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <div>
-                <label className="block text-xs font-medium text-stone-500 mb-1.5">Limit Amount</label>
-                <input
-                  type="number"
-                  value={formLimit}
-                  onChange={(e) => setFormLimit(e.target.value)}
-                  placeholder="500000"
-                  min="1"
-                  className="w-full rounded-xl border border-stone-200 bg-[#FAFAF9] px-3 py-2.5 text-sm font-mono text-[#1C1917] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                />
-                {formLimit && parseFloat(formLimit) > 0 && (
-                  <p className="text-xs text-stone-400 mt-1 font-mono">{formatIDR(parseFloat(formLimit))}</p>
-                )}
-              </div>
+        <div className="space-y-4">
+          {!editId && (
+            <div>
+              <label className="block text-xs font-medium text-stone-500 mb-1.5">Category (Expense)</label>
+              <select
+                value={formCategoryId}
+                onChange={(e) => setFormCategoryId(e.target.value)}
+                className="w-full rounded-xl border border-stone-200 bg-[#FAFAF9] px-3 py-2.5 text-sm text-[#1C1917] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+              >
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
             </div>
-
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowModal(false)} className="flex-1 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-medium text-stone-600 hover:bg-stone-50 transition-colors">Cancel</button>
-              <button onClick={handleSave} disabled={saving || !formLimit || parseFloat(formLimit) <= 0} className="flex-1 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 shadow-sm">
-                {saving ? "Saving..." : editId ? "Update" : "Set Budget"}
-              </button>
-            </div>
+          )}
+          <div>
+            <label className="block text-xs font-medium text-stone-500 mb-1.5">Limit Amount</label>
+            <input
+              type="number"
+              value={formLimit}
+              onChange={(e) => setFormLimit(e.target.value)}
+              placeholder="500000"
+              min="1"
+              className="w-full rounded-xl border border-stone-200 bg-[#FAFAF9] px-3 py-2.5 text-sm font-mono text-[#1C1917] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+            />
+            {formLimit && parseFloat(formLimit) > 0 && (
+              <p className="text-xs text-stone-400 mt-1 font-mono">{formatIDR(parseFloat(formLimit))}</p>
+            )}
           </div>
         </div>
-      )}
+
+        <div className="flex gap-3 mt-6 pt-4 border-t border-stone-100">
+          <button onClick={() => setShowModal(false)} className="flex-1 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-medium text-stone-600 hover:bg-stone-50 transition-colors">Cancel</button>
+          <button onClick={handleSave} disabled={saving || !formLimit || parseFloat(formLimit) <= 0} className="flex-1 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 shadow-sm">
+            {saving ? "Saving..." : editId ? "Update" : "Set Budget"}
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }

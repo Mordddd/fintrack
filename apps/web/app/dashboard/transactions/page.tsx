@@ -12,7 +12,7 @@ import {
   exportTransactionsCSV,
   exportTransactionsJSON,
 } from "@/lib/api";
-import { formatIDR, formatDate, getSavedCurrency, cn } from "@/lib/utils";
+import { formatIDR, formatCurrency, formatDate, getSavedCurrency, cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { Modal } from "@/lib/modal";
 import type {
@@ -355,66 +355,99 @@ export default function TransactionsPage() {
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="bg-white rounded-2xl shadow-[0_1px_2px_rgba(0,0,0,0.04),0_2px_8px_rgba(0,0,0,0.04)] border border-stone-200/60 p-4 flex flex-col md:flex-row items-center gap-3 justify-between">
-        {/* Type Toggle Tabs */}
-        <div className="flex items-center bg-stone-100 p-1 rounded-xl w-full md:w-auto">
-          {["ALL", "INCOME", "EXPENSE"].map((t) => (
-            <button
-              key={t}
-              onClick={() => {
-                setSelectedType(t);
+      {/* Filter Bar & Search */}
+      <div className="bg-white rounded-2xl shadow-[0_1px_2px_rgba(0,0,0,0.04),0_2px_8px_rgba(0,0,0,0.04)] border border-stone-200/60 p-4 space-y-3">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 justify-between">
+          {/* Search Input */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search description or notes..."
+              className="w-full bg-stone-50 border border-stone-200 rounded-xl pl-9 pr-8 py-2 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-0.5"
+                title="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+            {/* Type Toggle Tabs */}
+            <div className="flex items-center bg-stone-100 p-1 rounded-xl w-full sm:w-auto">
+              {["ALL", "INCOME", "EXPENSE"].map((t) => (
+                <button
+                  key={t}
+                  onClick={() => {
+                    setSelectedType(t);
+                    setPage(1);
+                  }}
+                  className={cn(
+                    "flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all",
+                    selectedType === t
+                      ? "bg-white text-[#1C1917] shadow-sm"
+                      : "text-stone-500 hover:text-[#1C1917]",
+                  )}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            {/* Dropdowns */}
+            <select
+              value={selectedAccountId}
+              onChange={(e) => {
+                setSelectedAccountId(e.target.value);
                 setPage(1);
               }}
-              className={cn(
-                "flex-1 md:flex-none px-3.5 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all",
-                selectedType === t
-                  ? "bg-white text-[#1C1917] shadow-sm"
-                  : "text-stone-500 hover:text-[#1C1917]",
-              )}
+              className="bg-stone-50 border border-stone-200 rounded-xl px-3 py-1.5 text-xs text-stone-700 outline-none w-full sm:w-auto"
             >
-              {t}
-            </button>
-          ))}
-        </div>
+              <option value="">All Accounts</option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
 
-        {/* Dropdowns */}
-        <div className="flex items-center gap-2.5 w-full md:w-auto flex-wrap sm:flex-nowrap">
-          <select
-            value={selectedAccountId}
-            onChange={(e) => {
-              setSelectedAccountId(e.target.value);
-              setPage(1);
-            }}
-            className="bg-stone-50 border border-stone-200 rounded-xl px-3 py-1.5 text-xs text-stone-700 outline-none w-full sm:w-auto"
-          >
-            <option value="">All Accounts</option>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </select>
+            <select
+              value={selectedCategoryId}
+              onChange={(e) => {
+                setSelectedCategoryId(e.target.value);
+                setPage(1);
+              }}
+              className="bg-stone-50 border border-stone-200 rounded-xl px-3 py-1.5 text-xs text-stone-700 outline-none w-full sm:w-auto"
+            >
+              <option value="">All Categories</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.type})
+                </option>
+              ))}
+            </select>
 
-          <select
-            value={selectedCategoryId}
-            onChange={(e) => {
-              setSelectedCategoryId(e.target.value);
-              setPage(1);
-            }}
-            className="bg-stone-50 border border-stone-200 rounded-xl px-3 py-1.5 text-xs text-stone-700 outline-none w-full sm:w-auto"
-          >
-            <option value="">All Categories</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} ({c.type})
-              </option>
-            ))}
-          </select>
+            {isFiltered && (
+              <button
+                onClick={handleClearFilters}
+                className="flex items-center gap-1 text-xs font-medium text-rose-600 hover:text-rose-700 px-2.5 py-1.5 rounded-lg hover:bg-rose-50 transition-colors whitespace-nowrap"
+              >
+                <X className="h-3.5 w-3.5" />
+                Clear filters
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Transactions Table / List */}
+      {/* Transactions Table (Desktop) & Cards (Mobile) */}
       <div className="bg-white rounded-2xl shadow-[0_1px_2px_rgba(0,0,0,0.04),0_2px_8px_rgba(0,0,0,0.04)] border border-stone-200/60 overflow-hidden">
         {loading ? (
           <div className="p-8 space-y-4">
@@ -428,101 +461,193 @@ export default function TransactionsPage() {
               <ReceiptText className="h-6 w-6" />
             </div>
             <h3 className="text-base font-semibold text-[#1C1917]">
-              No transactions found
+              {isFiltered ? "No matching transactions" : "No transactions found"}
             </h3>
             <p className="text-sm text-stone-500 mt-1 max-w-sm mx-auto">
-              No transactions match your current filters. Add your first income or expense!
+              {isFiltered
+                ? "Try adjusting your search terms or filters to find what you are looking for."
+                : "No transactions match your current filters. Add your first income or expense!"}
             </p>
-            <button
-              onClick={handleOpenAdd}
-              className="mt-5 inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-4 py-2 text-sm font-medium transition-colors shadow-sm"
-            >
-              <Plus className="h-4 w-4" />
-              Add Transaction
-            </button>
+            {isFiltered ? (
+              <button
+                onClick={handleClearFilters}
+                className="mt-5 inline-flex items-center gap-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl px-4 py-2 text-sm font-medium transition-colors"
+              >
+                <X className="h-4 w-4" />
+                Clear filters
+              </button>
+            ) : (
+              <button
+                onClick={handleOpenAdd}
+                className="mt-5 inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-4 py-2 text-sm font-medium transition-colors shadow-sm"
+              >
+                <Plus className="h-4 w-4" />
+                Add Transaction
+              </button>
+            )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-stone-100 bg-stone-50/50 text-stone-400 text-xs font-semibold uppercase tracking-wider">
-                  <th className="px-6 py-3.5">Date</th>
-                  <th className="px-6 py-3.5">Description</th>
-                  <th className="px-6 py-3.5">Category</th>
-                  <th className="px-6 py-3.5">Account</th>
-                  <th className="px-6 py-3.5 text-right">Amount</th>
-                  <th className="px-6 py-3.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-100">
-                {transactions.map((t) => {
-                  const isIncome = t.type === TransactionType.INCOME;
-
-                  return (
-                    <tr
-                      key={t.id}
-                      className="hover:bg-stone-50/80 transition-colors group"
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap text-stone-500 font-mono text-xs">
-                        {formatDate(t.date)}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="font-medium text-[#1C1917]">
+          <>
+            {/* Mobile Card View (< sm) */}
+            <div className="divide-y divide-stone-100 sm:hidden">
+              {transactions.map((t) => {
+                const isIncome = t.type === TransactionType.INCOME;
+                return (
+                  <div key={t.id} className="p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-stone-900 text-sm truncate">
                           {t.description || "Untitled Transaction"}
                         </div>
-                        {t.notes && (
-                          <div className="text-xs text-stone-400 mt-0.5 line-clamp-1">
-                            {t.notes}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-stone-100 text-stone-700">
-                          <span
-                            className="h-2 w-2 rounded-full"
-                            style={{ backgroundColor: t.category?.color || "#059669" }}
-                          />
-                          {t.category?.name || "Uncategorized"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-stone-600 font-medium">
-                        {t.account?.name || "-"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right font-mono font-semibold">
-                        <span
-                          className={cn(
-                            "inline-flex items-center gap-1",
-                            isIncome ? "text-emerald-600" : "text-rose-600",
-                          )}
-                        >
-                          {isIncome ? "+" : "-"}
-                          {formatIDR(t.amount)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => handleOpenEdit(t)}
-                            className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors"
-                            title="Edit"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(t.id)}
-                            className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                        <div className="text-xs text-stone-400 font-mono mt-0.5">
+                          {formatDate(t.date)} • {t.account?.name || "No Account"}
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                      <div
+                        className={cn(
+                          "font-mono font-bold text-sm whitespace-nowrap",
+                          isIncome ? "text-emerald-600" : "text-rose-600",
+                        )}
+                      >
+                        {isIncome ? "+" : "-"}
+                        {formatIDR(t.amount)}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-medium bg-stone-100 text-stone-700">
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: t.category?.color || "#059669" }}
+                        />
+                        {t.category?.name || "Uncategorized"}
+                      </span>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleRepeat(t)}
+                          className="p-1.5 rounded-lg text-stone-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                          title="Repeat transaction"
+                          aria-label="Repeat transaction"
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleOpenEdit(t)}
+                          className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors"
+                          title="Edit"
+                          aria-label="Edit transaction"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => setDeleteCandidate(t)}
+                          className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                          title="Delete"
+                          aria-label="Delete transaction"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table View (>= sm) */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-stone-100 bg-stone-50/50 text-stone-400 text-xs font-semibold uppercase tracking-wider">
+                    <th className="px-6 py-3.5">Date</th>
+                    <th className="px-6 py-3.5">Description</th>
+                    <th className="px-6 py-3.5">Category</th>
+                    <th className="px-6 py-3.5">Account</th>
+                    <th className="px-6 py-3.5 text-right">Amount</th>
+                    <th className="px-6 py-3.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100">
+                  {transactions.map((t) => {
+                    const isIncome = t.type === TransactionType.INCOME;
+
+                    return (
+                      <tr
+                        key={t.id}
+                        className="hover:bg-stone-50/80 transition-colors group"
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap text-stone-500 font-mono text-xs">
+                          {formatDate(t.date)}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="font-medium text-[#1C1917]">
+                            {t.description || "Untitled Transaction"}
+                          </div>
+                          {t.notes && (
+                            <div className="text-xs text-stone-400 mt-0.5 line-clamp-1">
+                              {t.notes}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-stone-100 text-stone-700">
+                            <span
+                              className="h-2 w-2 rounded-full"
+                              style={{ backgroundColor: t.category?.color || "#059669" }}
+                            />
+                            {t.category?.name || "Uncategorized"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-stone-600 font-medium">
+                          {t.account?.name || "-"}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right font-mono font-semibold">
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1",
+                              isIncome ? "text-emerald-600" : "text-rose-600",
+                            )}
+                          >
+                            {isIncome ? "+" : "-"}
+                            {formatIDR(t.amount)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          <div className="flex items-center justify-end gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => handleRepeat(t)}
+                              className="p-1.5 rounded-lg text-stone-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                              title="Repeat transaction"
+                              aria-label="Repeat transaction"
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleOpenEdit(t)}
+                              className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors"
+                              title="Edit"
+                              aria-label="Edit transaction"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setDeleteCandidate(t)}
+                              className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                              title="Delete"
+                              aria-label="Delete transaction"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
         {/* Pagination Bar */}
@@ -673,6 +798,11 @@ export default function TransactionsPage() {
                   onChange={(e) => setAmount(e.target.value)}
                   className="w-full font-mono bg-white border border-stone-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
                 />
+                {amount && !isNaN(Number(amount)) && Number(amount) > 0 && (
+                  <p className="mt-1 text-xs text-stone-500 font-mono">
+                    ≈ {formatCurrency(Number(amount), activeCurrency)}
+                  </p>
+                )}
               </div>
 
               {/* Description & Date */}
@@ -734,6 +864,48 @@ export default function TransactionsPage() {
                 </button>
               </div>
             </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal isOpen={!!deleteCandidate} onClose={() => setDeleteCandidate(null)}>
+        <div className="flex items-center justify-between pb-4 border-b border-stone-100">
+          <h2 className="text-lg font-semibold text-[#1C1917]">Delete Transaction</h2>
+          <button
+            onClick={() => setDeleteCandidate(null)}
+            className="rounded-lg p-1 text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="py-4 space-y-3">
+          <p className="text-sm text-stone-600">
+            Are you sure you want to delete{" "}
+            <span className="font-semibold text-stone-900">
+              {deleteCandidate?.description || "this transaction"}
+            </span>{" "}
+            ({deleteCandidate ? formatIDR(deleteCandidate.amount) : ""})?
+          </p>
+          <p className="text-xs text-stone-500 bg-amber-50 border border-amber-200/60 p-2.5 rounded-xl text-amber-800">
+            Note: The account balance will be automatically adjusted.
+          </p>
+        </div>
+        <div className="flex items-center justify-end gap-3 pt-4 border-t border-stone-100">
+          <button
+            type="button"
+            onClick={() => setDeleteCandidate(null)}
+            className="px-4 py-2.5 text-sm font-medium text-stone-600 hover:bg-stone-100 rounded-xl transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={isDeleting}
+            onClick={confirmDelete}
+            className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl px-5 py-2.5 text-sm font-medium transition-colors shadow-sm disabled:opacity-50"
+          >
+            {isDeleting ? "Deleting..." : "Delete Transaction"}
+          </button>
+        </div>
       </Modal>
     </div>
   );
